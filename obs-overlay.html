@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OVRDRV OBS Widget</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: transparent; overflow: hidden; font-family: 'Impact', sans-serif; }
+        #canvas-wrapper { position: relative; width: 100%; height: 100%; }
+        .hype-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5); text-align: center; opacity: 0; transition: all 0.15s ease; }
+        .hype-text { font-size: 6rem; color: #00ffcc; text-transform: uppercase; text-shadow: 0 0 15px #00ffcc, 0 0 40px #ff00ff; }
+        .shake-active { opacity: 1 !important; transform: translate(-50%, -50%) scale(1) !important; animation: intenseChaos 0.1s infinite alternate; }
+        @keyframes intenseChaos { 0% { transform: translate(-51%, -49%) rotate(-1deg); } 100% { transform: translate(-49%, -51%) rotate(1deg); } }
+    </style>
+</head>
+<body>
+    <div id="canvas-wrapper">
+        <div id="alert-box" class="hype-container"><div class="hype-text">⚡ OVERDRIVE ACTIVE ⚡</div></div>
+    </div>
+    <script>
+        const SUPABASE_URL = 'https://nkcopkrondaoqbavhnon.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Dynamic URL Extraction: Looks for ?user=STREAMER_ID in the browser address
+        const urlParams = new URLSearchParams(window.location.search);
+        const streamerId = urlParams.get('user');
+
+        if (!streamerId) {
+            console.error("No user specified! URL must look like: overlay.html?user=STREAMER_UUID");
+        }
+
+        const joltSound = new Audio('overdrive.wav');
+        joltSound.load();
+        
+        function triggerHype() {
+            const alertBox = document.getElementById('alert-box');
+            joltSound.currentTime = 0;
+            joltSound.play().catch(e => console.log("Click the screen first to unlock audio!"));
+            alertBox.classList.add('shake-active');
+            
+            setTimeout(() => { 
+                alertBox.classList.remove('shake-active'); 
+                joltSound.pause();
+                joltSound.currentTime = 0;
+            }, 3000);
+        }
+
+        if (streamerId) {
+            console.log(`Listening for cloud triggers targeted to user: ${streamerId}`);
+            
+            _supabase
+                .channel('stream_events_changes')
+                .on('postgres_changes', { 
+                    event: 'INSERT', 
+                    schema: 'public', 
+                    table: 'stream_events',
+                    filter: `user_id=eq.${streamerId}` // ONLY triggers if the row matches this streamer
+                }, async (payload) => {
+                    console.log('Targeted event detected!', payload);
+                    if (payload.new.is_triggered === true) {
+                        triggerHype();
+
+                        // Automatically reset row
+                        await _supabase
+                            .from('stream_events')
+                            .update({ is_triggered: false })
+                            .eq('id', payload.new.id);
+                    }
+                })
+                .subscribe();
+        }
+    </script>
+</body>
+</html>

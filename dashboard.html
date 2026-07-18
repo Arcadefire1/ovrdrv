@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OVRDRV - Streamer Dashboard</title>
+    <style>
+        body { background: #0f0f13; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .dashboard-container { background: #1a1a24; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 450px; }
+        h2 { color: #00ffcc; text-transform: uppercase; margin-top: 0; }
+        .section { margin-bottom: 24px; background: #101017; padding: 15px; border-radius: 6px; border: 1px solid #222; }
+        label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 6px; text-transform: uppercase; }
+        input { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #333; background: #15151f; color: #00ffcc; box-sizing: border-box; font-family: monospace; font-size: 0.9rem; }
+        .btn { display: inline-block; width: 100%; padding: 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; box-sizing: border-box; }
+        .btn-test { background: linear-gradient(45deg, #ff0055, #ff00aa); color: white; }
+        .btn-test:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <h2>Streamer Control Panel</h2>
+        <p style="color: #888; font-size: 0.9rem; margin-bottom: 24px;">Copy these custom links into OBS and share your controller link with viewers.</p>
+        
+        <div class="section">
+            <label>1. OBS Browser Source Link</label>
+            <input type="text" id="obs-url" readonly onclick="this.select();" />
+        </div>
+
+        <div class="section">
+            <label>2. Public Controller Link (For Viewers/Mods)</label>
+            <input type="text" id="controller-url" readonly onclick="this.select();" />
+        </div>
+
+        <div class="section" style="border: none; background: transparent; padding: 0;">
+            <label>Test Launch</label>
+            <a id="launch-btn" class="btn btn-test" target="_blank">Open My Controller Panel</a>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user');
+
+        if (!userId) {
+            alert("No user ID detected. Please log in through auth.html first.");
+            window.location.href = 'auth.html';
+        }
+
+        const baseLocation = window.location.origin + window.location.pathname.replace('dashboard.html', '');
+
+        const obsLink = `${baseLocation}obs-overlay.html?user=${userId}`;
+        const controllerLink = `${baseLocation}controller.html?user=${userId}`;
+
+        document.getElementById('obs-url').value = obsLink;
+        document.getElementById('controller-url').value = controllerLink;
+        document.getElementById('launch-btn').href = controllerLink;
+    </script>
+</body>
+</html>

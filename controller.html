@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OVRDRV Stream Controller</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #0f0f13; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .panel { text-align: center; background: #1a1a24; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        button { background: linear-gradient(45deg, #ff0055, #ff00aa); color: white; border: none; padding: 20px 40px; font-size: 1.5rem; font-weight: bold; border-radius: 8px; cursor: pointer; text-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: transform 0.1s; }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h2>OVRDRV Trigger Panel</h2>
+        <button id="trigger-btn">⚡ OVERDRIVE ⚡</button>
+    </div>
+    <script>
+        const SUPABASE_URL = 'https://nkcopkrondaoqbavhnon.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Dynamic URL Extraction: Looks for ?user=STREAMER_ID
+        const urlParams = new URLSearchParams(window.location.search);
+        const streamerId = urlParams.get('user');
+
+        document.getElementById('trigger-btn').addEventListener('click', async () => {
+            if (!streamerId) {
+                alert("Error: No streamer user specified in the link address (?user=...)");
+                return;
+            }
+
+            console.log(`Sending trigger event for user: ${streamerId}`);
+            const { error } = await _supabase
+                .from('stream_events')
+                .insert([
+                    { is_triggered: true, user_id: streamerId } // Labels the row with the user ID
+                ]);
+
+            if (error) console.error("Trigger failed:", error);
+        });
+    </script>
+</body>
+</html>
