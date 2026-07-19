@@ -28,7 +28,7 @@
   <!-- Messages Stream Area -->
   <main id="chat-stream" class="flex-grow p-4 overflow-y-auto space-y-3 flex flex-col justify-end">
     <div class="text-xs text-zinc-600 font-mono bg-zinc-900/30 border border-zinc-900 p-3 rounded-lg max-w-sm">
-      [SYSTEM]: Channel connection initialized. Type hype words or spam emojis together to trigger the streamer's layout alert engine.
+      [SYSTEM]: Channel connection initialized. Type high-velocity words (LFG, HYPE, GG, BURST) or emojis to surge the overlay meter!
     </div>
   </main>
 
@@ -36,7 +36,6 @@
   <footer class="p-4 border-t border-zinc-800 bg-zinc-900/40 backdrop-blur-md sticky bottom-0">
     <form id="chat-form" onsubmit="event.preventDefault();" class="flex flex-col gap-2 max-w-3xl mx-auto">
       <div class="flex gap-2 items-center">
-        <!-- Username input configuration -->
         <input 
           id="username-input" 
           type="text" 
@@ -85,19 +84,35 @@
 
     channel
       .on('broadcast', { event: 'hype-increment' }, (payload) => {
-        appendMessage(payload.payload.username, payload.payload.msg);
+        appendMessage(payload.payload.username, payload.payload.msg, payload.payload.weight);
       })
       .subscribe();
 
+    // Word Scanner Dictionary Configuration
+    const HYPE_KEYWORDS = ['hype', 'lfg', 'gg', 'omg', 'burst', 'overdrive', 'wow', 'fire', '⚡', '🔥'];
+    // Regex targeting standard graphical emoji sets
+    const EMOJI_REGEX = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+
     chatForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      e.stopPropagation();
       
       const text = chatInput.value.trim();
       const user = usernameInput.value.trim() || "Anonymous";
       if (!text) return false;
 
-      let velocityWeight = 6;
+      // Calculate dynamic entry weight bases
+      let velocityWeight = 4; // Base chat weight
+      const lowerText = text.toLowerCase();
+
+      // Check if message matches specialized high-tier metrics keywords
+      const containsHypeWord = HYPE_KEYWORDS.some(word => lowerText.includes(word));
+      const containsEmoji = EMOJI_REGEX.test(text);
+
+      if (containsHypeWord) {
+        velocityWeight = 15; // Critical boost target
+      } else if (containsEmoji) {
+        velocityWeight = 8;  // Intermediate emoji multiplier
+      }
       
       channel.send({
         type: 'broadcast',
@@ -113,10 +128,19 @@
       return false;
     });
 
-    function appendMessage(user, msg) {
+    function appendMessage(user, msg, weight) {
       const msgNode = document.createElement('div');
-      msgNode.className = "text-sm bg-zinc-900 border border-zinc-800/60 px-4 py-2.5 rounded-xl max-w-fit break-words font-medium animate-fade-in text-zinc-200";
-      msgNode.innerHTML = `<span class="text-blue-400 font-bold mr-1.5">${user}:</span>${msg}`;
+      msgNode.className = "text-sm bg-zinc-900 border border-zinc-800/60 px-4 py-2.5 rounded-xl max-w-fit break-words font-medium animate-fade-in text-zinc-200 flex items-center justify-between gap-4";
+      
+      // Add a subtle particle tracker visual indicator showing how much weight the message carried
+      let badgeColor = "text-zinc-500 bg-zinc-950 border-zinc-800";
+      if (weight === 15) badgeColor = "text-red-400 bg-red-950/40 border-red-900/50 font-black";
+      else if (weight === 8) badgeColor = "text-purple-400 bg-purple-950/40 border-purple-900/50";
+
+      msgNode.innerHTML = `
+        <div><span class="text-blue-400 font-bold mr-1.5">${user}:</span><span>${msg}</span></div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded border font-mono ${badgeColor}">+${weight}</span>
+      `;
       
       chatStream.appendChild(msgNode);
       chatStream.scrollTop = chatStream.scrollHeight;
