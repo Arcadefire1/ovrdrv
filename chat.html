@@ -4,14 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OVRDRV Chat Room</title>
-  <!-- Tailwind CSS for styling -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col antialiased">
 
-  <!-- Header Section -->
   <header class="border-b border-zinc-800 bg-zinc-900/50 p-4 backdrop-blur-md flex items-center justify-between sticky top-0 z-10">
     <div>
       <h1 class="font-black tracking-tight text-xl text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 uppercase">
@@ -25,17 +22,15 @@
     </div>
   </header>
 
-  <!-- Messages Stream Area -->
   <main id="chat-stream" class="flex-grow p-4 overflow-y-auto space-y-3 flex flex-col justify-end">
     <div class="text-xs text-zinc-600 font-mono bg-zinc-900/30 border border-zinc-900 p-3 rounded-lg max-w-sm">
-      [SYSTEM]: Channel connection initialized. Type high-velocity words (LFG, HYPE, GG, BURST) or emojis to surge the overlay meter!
+      [SYSTEM]: TTS Active. Select a voice character below to read your message out loud on stream!
     </div>
   </main>
 
-  <!-- Interactive Input Wrapper -->
   <footer class="p-4 border-t border-zinc-800 bg-zinc-900/40 backdrop-blur-md sticky bottom-0">
-    <form id="chat-form" onsubmit="event.preventDefault();" class="flex flex-col gap-2 max-w-3xl mx-auto">
-      <div class="flex gap-2 items-center">
+    <form id="chat-form" onsubmit="event.preventDefault();" class="flex flex-col gap-3 max-w-3xl mx-auto">
+      <div class="flex flex-wrap gap-2 items-center">
         <input 
           id="username-input" 
           type="text" 
@@ -43,6 +38,21 @@
           maxlength="20"
           class="w-40 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-zinc-300 font-mono"
         />
+        
+        <!-- Character Selector Selection Dropdown -->
+        <select 
+          id="voice-select" 
+          class="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500 text-zinc-300 font-mono"
+        >
+          <option value="none">No Voice (Text Only)</option>
+          <!-- Using default ElevenLabs high-quality stock voice profiles -->
+          <option value="pNInz6obpgmo5CgCtSLW">Rachel (Calm/Friendly)</option>
+          <option value="IKne3meq5aC2wsaExNxs">Charlie (Energetic/Hype)</option>
+          <option value="ErXwobaYiN019PkySvjV">Antoni (Deep/Narrator)</option>
+        </select>
+      </div>
+
+      <div class="flex gap-2 items-center">
         <input 
           id="chat-input" 
           type="text" 
@@ -68,15 +78,12 @@
     const SUPABASE_URL = "https://nkcopkrondaoqbavhnon.supabase.co"; 
     const SUPABASE_ANON_KEY = "sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0";
 
-    if (!userId) {
-      document.body.innerHTML = "<div class='p-6 text-red-400 font-mono'>Fatal Error: Missing ?user= stream parameter.</div>";
-    }
-
     const ovrdrvSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const chatStream = document.getElementById('chat-stream');
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
     const usernameInput = document.getElementById('username-input');
+    const voiceSelect = document.getElementById('voice-select');
 
     const channel = ovrdrvSupabase.channel(`room:${userId}`, {
       config: { broadcast: { self: true } }
@@ -88,9 +95,7 @@
       })
       .subscribe();
 
-    // Word Scanner Dictionary Configuration
     const HYPE_KEYWORDS = ['hype', 'lfg', 'gg', 'omg', 'burst', 'overdrive', 'wow', 'fire', '⚡', '🔥'];
-    // Regex targeting standard graphical emoji sets
     const EMOJI_REGEX = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
 
     chatForm.addEventListener('submit', (e) => {
@@ -98,21 +103,17 @@
       
       const text = chatInput.value.trim();
       const user = usernameInput.value.trim() || "Anonymous";
+      const selectedVoice = voiceSelect.value;
       if (!text) return false;
 
-      // Calculate dynamic entry weight bases
-      let velocityWeight = 4; // Base chat weight
+      let velocityWeight = 4;
       const lowerText = text.toLowerCase();
 
-      // Check if message matches specialized high-tier metrics keywords
       const containsHypeWord = HYPE_KEYWORDS.some(word => lowerText.includes(word));
       const containsEmoji = EMOJI_REGEX.test(text);
 
-      if (containsHypeWord) {
-        velocityWeight = 15; // Critical boost target
-      } else if (containsEmoji) {
-        velocityWeight = 8;  // Intermediate emoji multiplier
-      }
+      if (containsHypeWord) velocityWeight = 15;
+      else if (containsEmoji) velocityWeight = 8;
       
       channel.send({
         type: 'broadcast',
@@ -120,7 +121,8 @@
         payload: {
           username: user,
           msg: text,
-          weight: velocityWeight
+          weight: velocityWeight,
+          voiceId: selectedVoice // Pack selected voice metadata parameters
         }
       });
 
@@ -130,9 +132,8 @@
 
     function appendMessage(user, msg, weight) {
       const msgNode = document.createElement('div');
-      msgNode.className = "text-sm bg-zinc-900 border border-zinc-800/60 px-4 py-2.5 rounded-xl max-w-fit break-words font-medium animate-fade-in text-zinc-200 flex items-center justify-between gap-4";
+      msgNode.className = "text-sm bg-zinc-900 border border-zinc-800/60 px-4 py-2.5 rounded-xl max-w-fit break-words font-medium text-zinc-200 flex items-center justify-between gap-4";
       
-      // Add a subtle particle tracker visual indicator showing how much weight the message carried
       let badgeColor = "text-zinc-500 bg-zinc-950 border-zinc-800";
       if (weight === 15) badgeColor = "text-red-400 bg-red-950/40 border-red-900/50 font-black";
       else if (weight === 8) badgeColor = "text-purple-400 bg-purple-950/40 border-purple-900/50";
@@ -144,10 +145,6 @@
       
       chatStream.appendChild(msgNode);
       chatStream.scrollTop = chatStream.scrollHeight;
-
-      if (chatStream.children.length > 30) {
-        chatStream.removeChild(chatStream.children[1]);
-      }
     }
   </script>
 </body>
