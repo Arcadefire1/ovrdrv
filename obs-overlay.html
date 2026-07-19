@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OVRDRV Overlay</title>
-  <!-- Tailwind CSS for styling -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     @keyframes shake {
@@ -22,17 +20,12 @@
       90% { transform: translate(2px, 2px) rotate(0deg); }
       100% { transform: translate(1px, -2px) rotate(0deg); }
     }
-    .shaking {
-      animation: shake 0.5s infinite;
-    }
-    .engine-flash {
-      animation: enginePulse 0.2s infinite alternate;
-    }
+    .shaking { animation: shake 0.5s infinite; }
+    .engine-flash { animation: enginePulse 0.2s infinite alternate; }
     @keyframes enginePulse {
       0% { background-color: rgba(239, 68, 68, 0.4); }
       100% { background-color: rgba(59, 130, 246, 0.4); }
     }
-    
     @keyframes msgIn {
       0% { opacity: 0; transform: translateY(12px) scale(0.95); }
       100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -41,12 +34,8 @@
       0% { opacity: 1; transform: scale(1); }
       100% { opacity: 0; transform: filter(blur(4px)) translateY(-8px); }
     }
-    .animate-msg-in {
-      animation: msgIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-    .animate-msg-out {
-      animation: msgOut 0.4s ease forwards;
-    }
+    .animate-msg-in { animation: msgIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-msg-out { animation: msgOut 0.4s ease forwards; }
   </style>
 </head>
 <body class="bg-transparent h-screen w-screen overflow-hidden flex flex-col justify-between p-6 select-none">
@@ -59,10 +48,8 @@
         Hype Velocity: <span id="meter-text" class="ml-1">0%</span>
       </div>
     </div>
-
-    <!-- Sub-bar Intermediate Milestone Popups -->
-    <div id="milestone-banner" class="absolute top-9 left-1/2 transform -translate-x-1/2 bg-zinc-900/90 border border-blue-500/40 px-4 py-1.5 rounded-xl text-center shadow-xl backdrop-blur-sm transform scale-0 opacity-0 transition-all duration-200 min-w-xs pointer-events-none">
-      <span id="milestone-text-content" class="text-xs font-black uppercase tracking-wider text-blue-400"></span>
+    <div id="milestone-banner" class="absolute top-9 left-1/2 transform -translate-x-1/2 bg-black/95 border px-4 py-1.5 rounded-xl text-center shadow-xl backdrop-blur-sm transform scale-0 opacity-0 transition-all duration-200 min-w-xs pointer-events-none">
+      <span id="milestone-text-content" class="text-xs font-black uppercase tracking-wider"></span>
     </div>
   </div>
 
@@ -83,20 +70,17 @@
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('user');
 
+    // INSERT YOUR ELEVENLABS API KEY HERE
+    const ELEVENLABS_API_KEY = "YOUR_ELEVENLABS_API_KEY"; 
+
     const SUPABASE_URL = "https://nkcopkrondaoqbavhnon.supabase.co"; 
     const SUPABASE_ANON_KEY = "sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0";
-
-    if (!userId) {
-      document.body.innerHTML = "<div class='text-white p-4 font-mono'>Missing ?user= parameter</div>";
-    }
 
     const clientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentHype = 0;
     const decayRate = 3; 
     let isOverdriveActive = false;
-
-    // Tracker to ensure milestone notifications only fire once per climb sequence
     let triggeredMilestones = { 25: false, 50: false, 75: false };
     let milestoneTimeout = null;
 
@@ -115,6 +99,11 @@
     channel
       .on('broadcast', { event: 'hype-increment' }, (payload) => {
         appendOverlayMessage(payload.payload.username, payload.payload.msg);
+        
+        // Execute Audio Processing pipeline if voice is requested
+        if (payload.payload.voiceId && payload.payload.voiceId !== "none") {
+          generateAndPlayTTS(payload.payload.msg, payload.payload.voiceId);
+        }
 
         if (isOverdriveActive) return;
         
@@ -123,33 +112,51 @@
         updateVisuals();
         checkMilestones();
         
-        if (currentHype >= 100) {
-          triggerOverdrive();
-        }
+        if (currentHype >= 100) triggerOverdrive();
       })
       .subscribe();
+
+    async function generateAndPlayTTS(text, voiceId) {
+      if (!ELEVENLABS_API_KEY || ELEVENLABS_API_KEY === "YOUR_ELEVENLABS_API_KEY") return;
+
+      try {
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVENLABS_API_KEY
+          },
+          body: JSON.stringify({
+            text: text,
+            model_id: "eleven_monolingual_v1",
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+          })
+        });
+
+        if (!response.ok) return;
+
+        const blob = await response.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audio.play();
+      } catch (error) {
+        console.error("TTS Pipeline error:", error);
+      }
+    }
 
     function appendOverlayMessage(user, text) {
       const msgNode = document.createElement('div');
       msgNode.className = "bg-black/75 border border-zinc-800/80 text-zinc-100 px-3.5 py-2 rounded-xl text-sm font-medium tracking-wide w-fit max-w-full break-words shadow-md backdrop-blur-sm animate-msg-in";
       msgNode.innerHTML = `<span class="text-purple-400 font-black tracking-wide mr-1.5">${user}:</span><span>${text}</span>`;
-
       chatContainer.appendChild(msgNode);
 
-      if (chatContainer.children.length > 5) {
-        chatContainer.removeChild(chatContainer.children[0]);
-      }
+      if (chatContainer.children.length > 5) chatContainer.removeChild(chatContainer.children[0]);
 
       setTimeout(() => {
         if (msgNode && msgNode.parentNode) {
           msgNode.classList.remove('animate-msg-in');
           msgNode.classList.add('animate-msg-out');
-          
-          setTimeout(() => {
-            if (msgNode && msgNode.parentNode) {
-              chatContainer.removeChild(msgNode);
-            }
-          }, 400);
+          setTimeout(() => { if (msgNode && msgNode.parentNode) chatContainer.removeChild(msgNode); }, 400);
         }
       }, 6000);
     }
@@ -169,17 +176,11 @@
 
     function triggerMilestoneAlert(text, borderColor, textColor) {
       clearTimeout(milestoneTimeout);
-      
-      // Reset layout color classes
       milestoneBanner.className = `absolute top-9 left-1/2 transform -translate-x-1/2 bg-black/95 border px-4 py-1.5 rounded-xl text-center shadow-xl backdrop-blur-sm transition-all duration-200 min-w-xs pointer-events-none ${borderColor}`;
       milestoneTextContent.className = `text-xs font-black uppercase tracking-wider ${textColor}`;
       milestoneTextContent.innerText = text;
-
-      // Pop container entry
       milestoneBanner.classList.remove('scale-0', 'opacity-0');
       milestoneBanner.classList.add('scale-100', 'opacity-100');
-
-      // Hide after 2.5 seconds sitting on interface
       milestoneTimeout = setTimeout(() => {
         milestoneBanner.classList.remove('scale-100', 'opacity-100');
         milestoneBanner.classList.add('scale-0', 'opacity-0');
@@ -189,48 +190,32 @@
     function updateVisuals() {
       hypeBar.style.width = `${currentHype}%`;
       meterText.innerText = `${Math.floor(currentHype)}%`;
-
-      if (currentHype > 70) {
-        document.body.classList.add('shaking', 'engine-flash');
-      } else if (currentHype > 40) {
-        document.body.classList.add('shaking');
-        document.body.classList.remove('engine-flash');
-      } else {
-        document.body.classList.remove('shaking', 'engine-flash');
-      }
+      if (currentHype > 70) document.body.className = "bg-transparent h-screen w-screen overflow-hidden flex flex-col justify-between p-6 select-none shaking engine-flash";
+      else if (currentHype > 40) {
+        document.body.className = "bg-transparent h-screen w-screen overflow-hidden flex flex-col justify-between p-6 select-none shaking";
+      } else document.body.className = "bg-transparent h-screen w-screen overflow-hidden flex flex-col justify-between p-6 select-none";
     }
 
     setInterval(() => {
       if (isOverdriveActive || currentHype === 0) return;
       currentHype = Math.max(currentHype - decayRate, 0);
       updateVisuals();
-
-      // Reset milestones trackers as value decays downward to allow loops to re-fire on new pushes
       if (currentHype < 75) triggeredMilestones[75] = false;
       if (currentHype < 50) triggeredMilestones[50] = false;
       if (currentHype < 25) triggeredMilestones[25] = false;
-
-      if (currentHype === 0) {
-        meterContainer.classList.add('opacity-0');
-      }
+      if (currentHype === 0) meterContainer.classList.add('opacity-0');
     }, 1000);
 
     function triggerOverdrive() {
       isOverdriveActive = true;
       currentHype = 100;
       updateVisuals();
-      
-      // Clear out active intermediate alerts if maximum state hits abruptly
-      milestoneBanner.classList.remove('scale-100', 'opacity-100');
-      milestoneBanner.classList.add('scale-0', 'opacity-0');
-
+      milestoneBanner.className = "absolute top-9 left-1/2 transform -translate-x-1/2 bg-black/95 border px-4 py-1.5 rounded-xl text-center shadow-xl backdrop-blur-sm transform scale-0 opacity-0 transition-all duration-200 min-w-xs pointer-events-none";
       alertCard.classList.remove('scale-0', 'opacity-0');
       alertCard.classList.add('scale-100', 'opacity-100');
-      
       setTimeout(() => {
         alertCard.classList.remove('scale-100', 'opacity-100');
         alertCard.classList.add('scale-0', 'opacity-0');
-        
         let drainDown = setInterval(() => {
           currentHype = Math.max(currentHype - 10, 0);
           updateVisuals();
