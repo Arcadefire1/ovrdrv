@@ -1,75 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>OVRDRV OBS Widget</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: transparent; overflow: hidden; font-family: 'Impact', sans-serif; }
-        #canvas-wrapper { position: relative; width: 100%; height: 100%; }
-        .hype-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5); text-align: center; opacity: 0; transition: all 0.15s ease; }
-        .hype-text { font-size: 6rem; color: #00ffcc; text-transform: uppercase; text-shadow: 0 0 15px #00ffcc, 0 0 40px #ff00ff; }
-        .shake-active { opacity: 1 !important; transform: translate(-50%, -50%) scale(1) !important; animation: intenseChaos 0.1s infinite alternate; }
-        @keyframes intenseChaos { 0% { transform: translate(-51%, -49%) rotate(-1deg); } 100% { transform: translate(-49%, -51%) rotate(1deg); } }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OVRDRV Overlay</title>
+  <!-- Tailwind CSS for styling -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* Screen shake animation for high intensity */
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-1px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(0px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(2px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(2px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(0deg); }
+    }
+    .shaking {
+      animation: shake 0.5s infinite;
+    }
+    /* Sudden flashing color hue animation when peaking */
+    .overdrive-flash {
+      animation: pulse 0.2s infinite alternate;
+    }
+    @keyframes pulse {
+      0% { background-color: rgba(239, 68, 68, 0.4); } /* Red */
+      100% { background-color: rgba(59, 130, 246, 0.4); } /* Blue */
+    }
+  </style>
 </head>
-<body>
-    <div id="canvas-wrapper">
-        <div id="alert-box" class="hype-container"><div class="hype-text">⚡ OVERDRIVE ACTIVE ⚡</div></div>
+<body class="bg-transparent h-screen w-screen overflow-hidden flex flex-col justify-between p-6 select-none">
+
+  <!-- Hype Meter HUD (Top of stream) -->
+  <div id="meter-container" class="w-full max-w-xl mx-auto bg-black/60 border border-white/10 rounded-full p-1 backdrop-blur-md opacity-0 transition-opacity duration-500">
+    <div class="relative w-full h-6 rounded-full overflow-hidden bg-zinc-900">
+      <div id="hype-bar" class="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 w-0 transition-all duration-100 ease-out"></div>
+      <div class="absolute inset-0 flex items-center justify-center text-xs font-black tracking-widest text-white uppercase drop-shadow">
+        Hype Velocity: <span id="meter-text" class="ml-1">0%</span>
+      </div>
     </div>
-    <script>
-        const SUPABASE_URL = 'https://nkcopkrondaoqbavhnon.supabase.co'; 
-        const SUPABASE_ANON_KEY = 'sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  </div>
 
-        // Dynamic URL Extraction: Looks for ?user=STREAMER_ID in the browser address
-        const urlParams = new URLSearchParams(window.location.search);
-        const streamerId = urlParams.get('user');
+  <!-- Central Canvas for Detonation Alert -->
+  <div class="flex-grow flex items-center justify-center">
+    <div id="alert-card" class="transform scale-0 opacity-0 transition-all duration-300 bg-black/90 border border-red-500/50 p-8 rounded-2xl text-center shadow-2xl shadow-red-500/20 max-w-md">
+      <h1 class="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-yellow-500 uppercase animate-bounce">
+        ⚡ OVERDRIVE ⚡
+      </h1>
+      <p class="text-zinc-400 font-medium tracking-wide mt-2 uppercase text-sm">Chat Broke the Meter!</p>
+    </div>
+  </div>
 
-        if (!streamerId) {
-            console.error("No user specified! URL must look like: overlay.html?user=STREAMER_UUID");
-        }
+  <script>
+    // Grab the user UUID from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('user');
 
-        const joltSound = new Audio('overdrive.wav');
-        joltSound.load();
+    // Parse your production config from URL or inject directly
+    const SUPABASE_URL = "YOUR_SUPABASE_URL"; 
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_KEY";
+
+    if (!userId) {
+      document.body.innerHTML = "<div class='text-white p-4'>Missing ?user= parameter</div>";
+    }
+
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentHype = 0;
+    const decayRate = 3; // How much the meter drops every 1 second loop
+    let isOverdriveActive = false;
+
+    const hypeBar = document.getElementById('hype-bar');
+    const meterText = document.getElementById('meter-text');
+    const meterContainer = document.getElementById('meter-container');
+    const alertCard = document.getElementById('alert-card');
+
+    // Initialize Realtime Broadcast Channel specifically for the user's room
+    const channel = supabase.channel(`room:${userId}`, {
+      config: { broadcast: { self: false } }
+    });
+
+    channel
+      .on('broadcast', { event: 'hype-increment' }, (payload) => {
+        if (isOverdriveActive) return;
         
-        function triggerHype() {
-            const alertBox = document.getElementById('alert-box');
-            joltSound.currentTime = 0;
-            joltSound.play().catch(e => console.log("Click the screen first to unlock audio!"));
-            alertBox.classList.add('shake-active');
-            
-            setTimeout(() => { 
-                alertBox.classList.remove('shake-active'); 
-                joltSound.pause();
-                joltSound.currentTime = 0;
-            }, 3000);
+        // Show meter container when activity begins
+        meterContainer.classList.remove('opacity-0');
+        
+        // Add incoming velocity weight (e.g., +5 per text message)
+        currentHype = Math.min(currentHype + (payload.payload.weight || 5), 100);
+        updateVisuals();
+        
+        // Check for detonation threshold
+        if (currentHype >= 100) {
+          triggerOverdrive();
         }
+      })
+      .subscribe();
 
-        if (streamerId) {
-            console.log(`Listening for cloud triggers targeted to user: ${streamerId}`);
-            
-            _supabase
-                .channel('stream_events_changes')
-                .on('postgres_changes', { 
-                    event: 'INSERT', 
-                    schema: 'public', 
-                    table: 'stream_events',
-                    filter: `user_id=eq.${streamerId}` // ONLY triggers if the row matches this streamer
-                }, async (payload) => {
-                    console.log('Targeted event detected!', payload);
-                    if (payload.new.is_triggered === true) {
-                        triggerHype();
+    function updateVisuals() {
+      hypeBar.style.width = `${currentHype}%`;
+      meterText.innerText = `${Math.floor(currentHype)}%`;
 
-                        // Automatically reset row
-                        await _supabase
-                            .from('stream_events')
-                            .update({ is_triggered: false })
-                            .eq('id', payload.new.id);
-                    }
-                })
-                .subscribe();
-        }
-    </script>
+      // Apply escalating visual states based on velocity depth
+      if (currentHype > 70) {
+        document.body.classList.add('shaking', 'overdrive-flash');
+      } else if (currentHype > 40) {
+        document.body.classList.add('shaking');
+        document.body.classList.remove('overdrive-flash');
+      } else {
+        document.body.classList.remove('shaking', 'overdrive-flash');
+      }
+    }
+
+    // Engine Decay Loop: Constantly drains velocity
+    setInterval(() => {
+      if (isOverdriveActive || currentHype === 0) return;
+      currentHype = Math.max(currentHype - decayRate, 0);
+      updateVisuals();
+
+      // Hide HUD if it rests back at zero to keep stream canvas clean
+      if (currentHype === 0) {
+        meterContainer.classList.add('opacity-0');
+      }
+    }, 1000);
+
+    // Peak event payoff logic
+    function triggerOverdrive() {
+      isOverdriveActive = true;
+      currentHype = 100;
+      updateVisuals();
+
+      // Pop the main full-screen notification card
+      alertCard.classList.remove('scale-0', 'opacity-0');
+      alertCard.classList.add('scale-100', 'opacity-100');
+
+      // Play audio asset if present, or add your sound logic here
+      
+      // Hold the climax state for 5 seconds before clearing
+      setTimeout(() => {
+        alertCard.classList.remove('scale-100', 'opacity-100');
+        alertCard.classList.add('scale-0', 'opacity-0');
+        
+        // Smoothly drain out down to 0
+        let drainDown = setInterval(() => {
+          currentHype = Math.max(currentHype - 10, 0);
+          updateVisuals();
+          if (currentHype === 0) {
+            clearInterval(drainDown);
+            isOverdriveActive = false;
+          }
+        }, 100);
+      }, 5000);
+    }
+  </script>
 </body>
 </html>
