@@ -34,7 +34,6 @@
 
   <!-- Interactive Input Wrapper -->
   <footer class="p-4 border-t border-zinc-800 bg-zinc-900/40 backdrop-blur-md sticky bottom-0">
-    <!-- Explicitly prevent default submission on the HTML tag level -->
     <form id="chat-form" onsubmit="event.preventDefault();" class="flex gap-2 max-w-3xl mx-auto items-center">
       <input 
         id="chat-input" 
@@ -64,12 +63,13 @@
       document.body.innerHTML = "<div class='p-6 text-red-400 font-mono'>Fatal Error: Missing ?user= stream parameter.</div>";
     }
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Renamed instance initialization to ensure zero collision with global scopes
+    const ovrdrvSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const chatStream = document.getElementById('chat-stream');
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
 
-    const channel = supabase.channel(`room:${userId}`, {
+    const channel = ovrdrvSupabase.channel(`room:${userId}`, {
       config: { broadcast: { self: true } }
     });
 
