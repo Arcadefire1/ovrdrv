@@ -63,7 +63,7 @@
       document.body.innerHTML = "<div class='p-6 text-red-400 font-mono'>Fatal Error: Missing ?user= stream parameter.</div>";
     }
 
-    // Fixed SyntaxError: Using window.supabase to initialize correctly
+    // Fixed SyntaxError: Correctly referencing the window object to initialize
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const chatStream = document.getElementById('chat-stream');
     const chatForm = document.getElementById('chat-form');
