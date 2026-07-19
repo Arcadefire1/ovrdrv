@@ -52,12 +52,17 @@
 <body class="bg-transparent h-screen w-screen overflow-hidden flex flex-col justify-between p-6 select-none">
 
   <!-- Hype Meter HUD -->
-  <div id="meter-container" class="w-full max-w-xl mx-auto bg-black/80 border border-white/10 rounded-full p-1 backdrop-blur-md opacity-0 transition-opacity duration-500">
+  <div id="meter-container" class="w-full max-w-xl mx-auto bg-black/80 border border-white/10 rounded-full p-1 backdrop-blur-md opacity-0 transition-opacity duration-500 relative">
     <div class="relative w-full h-6 rounded-full overflow-hidden bg-zinc-900">
       <div id="hype-bar" class="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 w-0 transition-all duration-100 ease-out"></div>
       <div class="absolute inset-0 flex items-center justify-center text-xs font-black tracking-widest text-white uppercase drop-shadow">
         Hype Velocity: <span id="meter-text" class="ml-1">0%</span>
       </div>
+    </div>
+
+    <!-- Sub-bar Intermediate Milestone Popups -->
+    <div id="milestone-banner" class="absolute top-9 left-1/2 transform -translate-x-1/2 bg-zinc-900/90 border border-blue-500/40 px-4 py-1.5 rounded-xl text-center shadow-xl backdrop-blur-sm transform scale-0 opacity-0 transition-all duration-200 min-w-xs pointer-events-none">
+      <span id="milestone-text-content" class="text-xs font-black uppercase tracking-wider text-blue-400"></span>
     </div>
   </div>
 
@@ -91,11 +96,17 @@
     const decayRate = 3; 
     let isOverdriveActive = false;
 
+    // Tracker to ensure milestone notifications only fire once per climb sequence
+    let triggeredMilestones = { 25: false, 50: false, 75: false };
+    let milestoneTimeout = null;
+
     const hypeBar = document.getElementById('hype-bar');
     const meterText = document.getElementById('meter-text');
     const meterContainer = document.getElementById('meter-container');
     const alertCard = document.getElementById('alert-card');
     const chatContainer = document.getElementById('overlay-chat-container');
+    const milestoneBanner = document.getElementById('milestone-banner');
+    const milestoneTextContent = document.getElementById('milestone-text-content');
 
     const channel = clientInstance.channel(`room:${userId}`, {
       config: { broadcast: { self: true } }
@@ -110,6 +121,7 @@
         meterContainer.classList.remove('opacity-0');
         currentHype = Math.min(currentHype + (payload.payload.weight || 6), 100);
         updateVisuals();
+        checkMilestones();
         
         if (currentHype >= 100) {
           triggerOverdrive();
@@ -120,8 +132,6 @@
     function appendOverlayMessage(user, text) {
       const msgNode = document.createElement('div');
       msgNode.className = "bg-black/75 border border-zinc-800/80 text-zinc-100 px-3.5 py-2 rounded-xl text-sm font-medium tracking-wide w-fit max-w-full break-words shadow-md backdrop-blur-sm animate-msg-in";
-      
-      // Inline generation parsing username styling cleanly
       msgNode.innerHTML = `<span class="text-purple-400 font-black tracking-wide mr-1.5">${user}:</span><span>${text}</span>`;
 
       chatContainer.appendChild(msgNode);
@@ -144,6 +154,38 @@
       }, 6000);
     }
 
+    function checkMilestones() {
+      if (currentHype >= 75 && !triggeredMilestones[75]) {
+        triggerMilestoneAlert("🔥 75% Critical Limit: Engine Glowing!", "border-red-500/50", "text-red-400");
+        triggeredMilestones[75] = true;
+      } else if (currentHype >= 50 && !triggeredMilestones[50] && !triggeredMilestones[75]) {
+        triggerMilestoneAlert("🚀 50% Halfway: Supercharger Engaged!", "border-purple-500/50", "text-purple-400");
+        triggeredMilestones[50] = true;
+      } else if (currentHype >= 25 && !triggeredMilestones[25] && !triggeredMilestones[50]) {
+        triggerMilestoneAlert("⚡ 25% Threshold: Revving Up!", "border-blue-500/50", "text-blue-400");
+        triggeredMilestones[25] = true;
+      }
+    }
+
+    function triggerMilestoneAlert(text, borderColor, textColor) {
+      clearTimeout(milestoneTimeout);
+      
+      // Reset layout color classes
+      milestoneBanner.className = `absolute top-9 left-1/2 transform -translate-x-1/2 bg-black/95 border px-4 py-1.5 rounded-xl text-center shadow-xl backdrop-blur-sm transition-all duration-200 min-w-xs pointer-events-none ${borderColor}`;
+      milestoneTextContent.className = `text-xs font-black uppercase tracking-wider ${textColor}`;
+      milestoneTextContent.innerText = text;
+
+      // Pop container entry
+      milestoneBanner.classList.remove('scale-0', 'opacity-0');
+      milestoneBanner.classList.add('scale-100', 'opacity-100');
+
+      // Hide after 2.5 seconds sitting on interface
+      milestoneTimeout = setTimeout(() => {
+        milestoneBanner.classList.remove('scale-100', 'opacity-100');
+        milestoneBanner.classList.add('scale-0', 'opacity-0');
+      }, 2500);
+    }
+
     function updateVisuals() {
       hypeBar.style.width = `${currentHype}%`;
       meterText.innerText = `${Math.floor(currentHype)}%`;
@@ -163,6 +205,11 @@
       currentHype = Math.max(currentHype - decayRate, 0);
       updateVisuals();
 
+      // Reset milestones trackers as value decays downward to allow loops to re-fire on new pushes
+      if (currentHype < 75) triggeredMilestones[75] = false;
+      if (currentHype < 50) triggeredMilestones[50] = false;
+      if (currentHype < 25) triggeredMilestones[25] = false;
+
       if (currentHype === 0) {
         meterContainer.classList.add('opacity-0');
       }
@@ -172,6 +219,10 @@
       isOverdriveActive = true;
       currentHype = 100;
       updateVisuals();
+      
+      // Clear out active intermediate alerts if maximum state hits abruptly
+      milestoneBanner.classList.remove('scale-100', 'opacity-100');
+      milestoneBanner.classList.add('scale-0', 'opacity-0');
 
       alertCard.classList.remove('scale-0', 'opacity-0');
       alertCard.classList.add('scale-100', 'opacity-100');
@@ -185,6 +236,7 @@
           updateVisuals();
           if (currentHype === 0) {
             clearInterval(drainDown);
+            triggeredMilestones = { 25: false, 50: false, 75: false };
             isOverdriveActive = false;
           }
         }, 100);
