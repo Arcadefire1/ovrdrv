@@ -83,9 +83,9 @@
     const meterContainer = document.getElementById('meter-container');
     const alertCard = document.getElementById('alert-card');
 
-    // Initialize Realtime Broadcast Channel specifically for the user's room
+    // FIX: Set self: true so testing between browser tabs works instantly
     const channel = supabase.channel(`room:${userId}`, {
-      config: { broadcast: { self: false } }
+      config: { broadcast: { self: true } }
     });
 
     channel
@@ -95,8 +95,8 @@
         // Show meter container when activity begins
         meterContainer.classList.remove('opacity-0');
         
-        // Add incoming velocity weight (e.g., +5 per text message)
-        currentHype = Math.min(currentHype + (payload.payload.weight || 5), 100);
+        // Add incoming velocity weight
+        currentHype = Math.min(currentHype + (payload.payload.weight || 6), 100);
         updateVisuals();
         
         // Check for detonation threshold
