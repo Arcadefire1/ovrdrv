@@ -70,8 +70,8 @@
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('user');
 
-    // INSERT YOUR ELEVENLABS API KEY HERE
-    const ELEVENLABS_API_KEY = "YOUR_ELEVENLABS_API_KEY"; 
+    // ElevenLabs API Key Integrated
+    const ELEVENLABS_API_KEY = "sk_fa7b3c3927e61181718a00ce2a526ae8685d513fde9f53f3"; 
 
     const SUPABASE_URL = "https://nkcopkrondaoqbavhnon.supabase.co"; 
     const SUPABASE_ANON_KEY = "sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0";
@@ -100,7 +100,6 @@
       .on('broadcast', { event: 'hype-increment' }, (payload) => {
         appendOverlayMessage(payload.payload.username, payload.payload.msg);
         
-        // Execute Audio Processing pipeline if voice is requested
         if (payload.payload.voiceId && payload.payload.voiceId !== "none") {
           generateAndPlayTTS(payload.payload.msg, payload.payload.voiceId);
         }
@@ -117,7 +116,7 @@
       .subscribe();
 
     async function generateAndPlayTTS(text, voiceId) {
-      if (!ELEVENLABS_API_KEY || ELEVENLABS_API_KEY === "YOUR_ELEVENLABS_API_KEY") return;
+      if (!ELEVENLABS_API_KEY) return;
 
       try {
         const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
