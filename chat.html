@@ -34,7 +34,8 @@
 
   <!-- Interactive Input Wrapper -->
   <footer class="p-4 border-t border-zinc-800 bg-zinc-900/40 backdrop-blur-md sticky bottom-0">
-    <form id="chat-form" class="flex gap-2 max-w-3xl mx-auto items-center">
+    <!-- Explicitly prevent default submission on the HTML tag level -->
+    <form id="chat-form" onsubmit="event.preventDefault();" class="flex gap-2 max-w-3xl mx-auto items-center">
       <input 
         id="chat-input" 
         type="text" 
@@ -63,7 +64,6 @@
       document.body.innerHTML = "<div class='p-6 text-red-400 font-mono'>Fatal Error: Missing ?user= stream parameter.</div>";
     }
 
-    // Fixed SyntaxError: Correctly referencing the window object to initialize
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const chatStream = document.getElementById('chat-stream');
     const chatForm = document.getElementById('chat-form');
@@ -81,8 +81,10 @@
 
     chatForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      e.stopPropagation();
+      
       const text = chatInput.value.trim();
-      if (!text) return;
+      if (!text) return false;
 
       let velocityWeight = 6;
       
@@ -96,6 +98,7 @@
       });
 
       chatInput.value = '';
+      return false;
     });
 
     function appendMessage(msg) {
