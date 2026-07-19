@@ -63,15 +63,16 @@
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('user');
 
-    // Parse your production config from URL or inject directly
-    const SUPABASE_URL = "YOUR_SUPABASE_URL"; 
-    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_KEY";
+    // Injected active Supabase configuration variables
+    const SUPABASE_URL = "https://nkcopkrondaoqbavhnon.supabase.co"; 
+    const SUPABASE_ANON_KEY = "sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0";
 
     if (!userId) {
       document.body.innerHTML = "<div class='text-white p-4'>Missing ?user= parameter</div>";
     }
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Fixed SyntaxError: Using window.supabase to initialize correctly
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentHype = 0;
     const decayRate = 3; // How much the meter drops every 1 second loop
@@ -141,8 +142,6 @@
       // Pop the main full-screen notification card
       alertCard.classList.remove('scale-0', 'opacity-0');
       alertCard.classList.add('scale-100', 'opacity-100');
-
-      // Play audio asset if present, or add your sound logic here
       
       // Hold the climax state for 5 seconds before clearing
       setTimeout(() => {

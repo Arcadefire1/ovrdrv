@@ -19,7 +19,6 @@
       </h1>
       <p class="text-xs text-zinc-500 uppercase tracking-widest mt-0.5">Spam to burst the engine</p>
     </div>
-    <!-- Visual Indicator for user to see current status -->
     <div class="flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-full border border-zinc-800">
       <div class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
       <span class="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Live Sync Active</span>
@@ -28,7 +27,6 @@
 
   <!-- Messages Stream Area -->
   <main id="chat-stream" class="flex-grow p-4 overflow-y-auto space-y-3 flex flex-col justify-end">
-    <!-- System Initialization Message -->
     <div class="text-xs text-zinc-600 font-mono bg-zinc-900/30 border border-zinc-900 p-3 rounded-lg max-w-sm">
       [SYSTEM]: Channel connection initialized. Type hype words or spam emojis together to trigger the streamer's layout alert engine.
     </div>
@@ -55,7 +53,6 @@
   </footer>
 
   <script>
-    // Grab user UUID parameter to attach to the correct channel
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('user');
 
@@ -66,14 +63,14 @@
       document.body.innerHTML = "<div class='p-6 text-red-400 font-mono'>Fatal Error: Missing ?user= stream parameter.</div>";
     }
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Fixed SyntaxError: Using window.supabase to initialize correctly
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const chatStream = document.getElementById('chat-stream');
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
 
-    // Setup broadcast connection matching the exact room ID as the overlay
     const channel = supabase.channel(`room:${userId}`, {
-      config: { broadcast: { self: true } } // self: true allows the chatter to see their own messages locally via stream
+      config: { broadcast: { self: true } }
     });
 
     channel
@@ -87,10 +84,8 @@
       const text = chatInput.value.trim();
       if (!text) return;
 
-      // Calculate simple velocity weight. Shorter spammed items/emojis carry standardized momentum.
       let velocityWeight = 6;
       
-      // Fire payload to the global Realtime tunnel instantly
       channel.send({
         type: 'broadcast',
         event: 'hype-increment',
@@ -109,13 +104,10 @@
       msgNode.innerText = msg;
       
       chatStream.appendChild(msgNode);
-      
-      // Auto-scroll layout to latest interactions
       chatStream.scrollTop = chatStream.scrollHeight;
 
-      // Prune old chat lines to keep browser memory lightweight
       if (chatStream.children.length > 30) {
-        chatStream.removeChild(chatStream.children[1]); // Preserves system setup notification line
+        chatStream.removeChild(chatStream.children[1]);
       }
     }
   </script>
