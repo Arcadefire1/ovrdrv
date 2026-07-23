@@ -210,6 +210,7 @@
       const voiceId = VOICE_MAP[voiceName] || VOICE_MAP['Rachel'];
 
       try {
+        // 1. Attempt ElevenLabs AI Voice via Supabase Edge Function
         const response = await fetch(`${SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
           method: 'POST',
           headers: {
@@ -222,8 +223,10 @@
           })
         });
 
+        // Fallback if API fails or quota exceeded (e.g. 402 Payment Required)
         if (!response.ok) {
-          console.error('Edge function error status:', response.status);
+          console.warn(`ElevenLabs API unavailable (Status ${response.status}). Falling back to browser SpeechSynthesis.`);
+          playFallbackSpeech(text);
           return;
         }
 
@@ -231,9 +234,28 @@
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
         await audio.play();
+
       } catch (err) {
-        console.error('Failed to trigger TTS audio:', err);
+        console.warn('Network error on ElevenLabs TTS. Falling back to browser SpeechSynthesis:', err);
+        playFallbackSpeech(text);
       }
+    }
+
+    // --- Free Web Speech API Fallback ---
+    function playFallbackSpeech(text) {
+      if (!('speechSynthesis' in window)) {
+        console.error('Speech synthesis not supported in this browser.');
+        return;
+      }
+
+      // Cancel any ongoing speech so queue stays clear
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      window.speechSynthesis.speak(utterance);
     }
 
     function updateVisuals() {
