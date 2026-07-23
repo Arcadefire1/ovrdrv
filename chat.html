@@ -44,11 +44,12 @@
           id="voice-select" 
           class="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500 text-zinc-300 font-mono"
         >
-          <option value="none">No Voice (Text Only)</option>
-          <!-- Using default ElevenLabs high-quality stock voice profiles -->
-          <option value="pNInz6obpgmo5CgCtSLW">Rachel (Calm/Friendly)</option>
-          <option value="IKne3meq5aC2wsaExNxs">Charlie (Energetic/Hype)</option>
-          <option value="ErXwobaYiN019PkySvjV">Antoni (Deep/Narrator)</option>
+          <option value="">No Voice (Text Only)</option>
+          <option value="Rachel">Rachel (Calm/Friendly)</option>
+          <option value="Charlie">Charlie (Energetic/Hype)</option>
+          <option value="Domi">Domi (Strong/Emphatic)</option>
+          <option value="Bella">Bella (Soft/Narrative)</option>
+          <option value="Antoni">Antoni (Deep/Narrator)</option>
         </select>
       </div>
 
@@ -63,7 +64,7 @@
         />
         <button 
           type="submit"
-          class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm uppercase tracking-wide px-6 py-3 rounded-xl shadow-lg shadow-purple-900/20 active:scale-98 transition-all duration-100"
+          class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm uppercase tracking-wide px-6 py-3 rounded-xl shadow-lg shadow-purple-900/20 active:scale-98 transition-all duration-100 cursor-pointer"
         >
           Send
         </button>
@@ -91,7 +92,8 @@
 
     channel
       .on('broadcast', { event: 'hype-increment' }, (payload) => {
-        appendMessage(payload.payload.username, payload.payload.msg, payload.payload.weight);
+        const data = payload.payload;
+        appendMessage(data.username || 'Anonymous', data.message || data.msg, data.weight || 4);
       })
       .subscribe();
 
@@ -120,9 +122,9 @@
         event: 'hype-increment',
         payload: {
           username: user,
-          msg: text,
+          message: text,
           weight: velocityWeight,
-          voiceId: selectedVoice // Pack selected voice metadata parameters
+          voice: selectedVoice
         }
       });
 
