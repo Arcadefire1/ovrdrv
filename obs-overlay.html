@@ -46,6 +46,15 @@
 </head>
 <body class="bg-transparent h-screen w-screen overflow-hidden flex flex-col justify-between p-6 select-none">
 
+  <!-- Audio Unlock Screen Overlay (For Browser Testing/Viewing) -->
+  <div id="audio-unlock-overlay" class="fixed inset-0 bg-black/85 text-white flex flex-col justify-center items-center z-50 cursor-pointer font-sans transition-opacity duration-300">
+    <div class="bg-zinc-900 border border-zinc-700 p-6 rounded-2xl text-center shadow-2xl max-w-sm">
+      <div class="text-3xl mb-2">🔊</div>
+      <h2 class="text-xl font-bold tracking-tight">Click Anywhere to Start</h2>
+      <p class="text-zinc-400 text-xs mt-2 uppercase tracking-wide">Enables TTS Audio Playback for this session</p>
+    </div>
+  </div>
+
   <!-- Hype Meter HUD (Top of stream) -->
   <div id="meter-container" class="w-full max-w-xl mx-auto bg-black/60 border border-white/10 rounded-full p-1 backdrop-blur-md opacity-0 transition-opacity duration-500">
     <div class="relative w-full h-6 rounded-full overflow-hidden bg-zinc-900">
@@ -70,6 +79,52 @@
   <div id="chat-container" class="w-full max-w-md flex flex-col gap-2 pointer-events-none"></div>
 
   <script>
+    // --- Audio Autoplay Unlock Logic ---
+    let audioCtx = null;
+
+    function initAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+    }
+
+    function unlockAudio() {
+      initAudioContext();
+
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      // Warm up audio buffer
+      if (audioCtx) {
+        const buffer = audioCtx.createBuffer(1, 1, 22050);
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start(0);
+      }
+
+      // Hide the overlay screen
+      const unlockOverlay = document.getElementById('audio-unlock-overlay');
+      if (unlockOverlay) {
+        unlockOverlay.style.opacity = '0';
+        setTimeout(() => {
+          unlockOverlay.style.display = 'none';
+        }, 300);
+      }
+
+      // Clean up event listeners
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
+    }
+
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('keydown', unlockAudio);
+
+    // --- Overlay Application Logic ---
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('user');
 
@@ -146,7 +201,12 @@
     }
 
     async function playTTS(text, voiceName) {
-      // Voice lookup with safe fallback to Rachel if character name is missing or invalid
+      // Ensure audio context is initialized and resumed before playback
+      initAudioContext();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
       const voiceId = VOICE_MAP[voiceName] || VOICE_MAP['Rachel'];
 
       try {
