@@ -201,7 +201,7 @@
     }
 
     async function playTTS(text, voiceName) {
-      // Ensure audio context is initialized and resumed before playback
+      // Ensure audio context is ready
       initAudioContext();
       if (audioCtx && audioCtx.state === 'suspended') {
         await audioCtx.resume();
@@ -223,10 +223,10 @@
           })
         });
 
-        // Fallback if API fails or quota exceeded (e.g. 402 Payment Required)
+        // If ElevenLabs fails (e.g. 402 Quota Reached), play fallback tone
         if (!response.ok) {
-          console.warn(`ElevenLabs API unavailable (Status ${response.status}). Falling back to browser SpeechSynthesis.`);
-          playFallbackSpeech(text);
+          console.warn(`ElevenLabs API unavailable (Status ${response.status}). Playing fallback tone.`);
+          playFallbackTone();
           return;
         }
 
@@ -236,26 +236,33 @@
         await audio.play();
 
       } catch (err) {
-        console.warn('Network error on ElevenLabs TTS. Falling back to browser SpeechSynthesis:', err);
-        playFallbackSpeech(text);
+        console.warn('Network error on ElevenLabs TTS:', err);
+        playFallbackTone();
       }
     }
 
-    // --- Free Web Speech API Fallback ---
-    function playFallbackSpeech(text) {
-      if (!('speechSynthesis' in window)) {
-        console.error('Speech synthesis not supported in this browser.');
-        return;
+    // --- Reliable Audio Fallback Tone ---
+    function playFallbackTone() {
+      if (!audioCtx) return;
+      
+      try {
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 note
+        
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.2);
+      } catch (e) {
+        console.error('Fallback tone error:', e);
       }
-
-      // Cancel any ongoing speech so queue stays clear
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-
-      window.speechSynthesis.speak(utterance);
     }
 
     function updateVisuals() {
