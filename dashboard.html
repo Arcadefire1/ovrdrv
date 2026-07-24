@@ -3,89 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OVRDRV Creator Dashboard</title>
-  <!-- Tailwind CSS -->
+  <title>OVRDRV SaaS - Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-zinc-950 text-white min-h-screen flex flex-col items-center justify-start p-6 font-mono">
+<body class="bg-zinc-950 text-white min-h-screen flex flex-col items-center justify-center p-6 font-mono">
 
-  <div class="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl mt-10">
-    <div class="flex justify-between items-center border-b border-zinc-800 pb-4 mb-6">
-      <h1 class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500 uppercase">
-        ⚡ OVRDRV Dashboard ⚡
-      </h1>
-      <span id="status-badge" class="text-xs bg-zinc-800 text-zinc-400 px-3 py-1 rounded-full uppercase tracking-wider">Not Connected</span>
+  <div class="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-6">
+    <!-- Header -->
+    <div class="border-b border-zinc-800 pb-4 flex justify-between items-center">
+      <div>
+        <h1 class="text-lg font-bold text-indigo-400">⚡ Creator Dashboard</h1>
+        <p id="user-email" class="text-xs text-zinc-400">Loading session...</p>
+      </div>
+      <button onclick="handleLogout()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer">
+        Sign Out
+      </button>
     </div>
 
-    <!-- Creator Sign In / Up Section -->
-    <div id="auth-section" class="mb-8 space-y-4">
-      <div id="logged-out-view" class="space-y-3">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-400">Creator Sign In / Up</h2>
-        <input type="email" id="auth-email" placeholder="Streamer Email" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-indigo-500 text-xs">
-        <input type="password" id="auth-password" placeholder="Password" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-indigo-500 text-xs">
+    <!-- Links Section -->
+    <div class="space-y-4">
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Your Controller Hub Link</label>
         <div class="flex gap-2">
-          <button onclick="signIn()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer">Sign In</button>
-          <button onclick="signUp()" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer border border-zinc-700">Register</button>
+          <input type="text" id="controller-link" readonly class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none">
+          <button onclick="copyLink('controller-link')" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg shadow-indigo-600/30">Copy</button>
         </div>
       </div>
 
-      <div id="logged-in-view" class="hidden flex justify-between items-center bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
-        <div>
-          <span class="text-[10px] text-zinc-400 uppercase tracking-wider block">Logged in as:</span>
-          <span id="user-email-display" class="text-indigo-400 font-bold text-xs"></span>
-        </div>
-        <button onclick="signOut()" class="bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer">Sign Out</button>
-      </div>
-    </div>
-
-    <!-- Dashboard Main Panel (Hidden until user authenticated) -->
-    <div id="dashboard-panel" class="hidden space-y-6">
-      <!-- Overlay URL Generator -->
-      <div class="bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
-        <label class="block text-xs uppercase tracking-wider text-zinc-400 mb-2">Your Live Stream Overlay URL</label>
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Your Live OBS Overlay Link</label>
         <div class="flex gap-2">
-          <input type="text" id="overlay-url-output" readonly class="flex-grow bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-indigo-300 text-xs select-all">
-          <button onclick="copyOverlayUrl()" class="bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer">Copy</button>
+          <input type="text" id="overlay-link" readonly class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none">
+          <button onclick="copyLink('overlay-link')" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg shadow-indigo-600/30">Copy</button>
         </div>
-        <p class="text-[10px] text-zinc-500 mt-2">Open this URL in your web browser source or monitor to display your live alert overlay.</p>
-      </div>
-
-      <!-- Streamer Settings Panel -->
-      <div class="bg-zinc-950 border border-zinc-800 p-4 rounded-xl space-y-4">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-400">⚙️ Streamer Settings</h2>
-        
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Master Volume</label>
-            <input type="range" id="setting-volume" min="0" max="100" value="80" class="w-full accent-indigo-500 bg-zinc-900">
-          </div>
-          <div>
-            <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Voice Style / Fallback</label>
-            <select id="setting-voice" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-              <option value="default">Default Browser Voice</option>
-              <option value="robot">Robotic Synth</option>
-              <option value="deep">Deep Tone</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="flex justify-end">
-          <button onclick="saveSettings()" class="bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer border border-zinc-700">
-            Save Settings
-          </button>
-        </div>
-      </div>
-
-      <!-- Quick Launch Links -->
-      <div class="grid grid-cols-2 gap-4">
-        <a id="launch-chat-btn" href="#" target="_blank" class="block bg-zinc-800 hover:bg-zinc-700 text-center py-3 rounded-xl font-bold text-sm transition-all border border-zinc-700">
-          🎮 Open Controller Chat
-        </a>
-        <a id="launch-overlay-btn" href="#" target="_blank" class="block bg-zinc-800 hover:bg-zinc-700 text-center py-3 rounded-xl font-bold text-sm transition-all border border-zinc-700">
-          📺 Open Live Overlay
-        </a>
       </div>
     </div>
   </div>
@@ -95,120 +46,35 @@
     const SUPABASE_ANON_KEY = "sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0";
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let activeUser = "";
+    window.addEventListener('DOMContentLoaded', async () => {
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
 
-    async function signUp() {
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-      const username = email.split('@')[0].toLowerCase();
-
-      const { data, error } = await supabaseClient.auth.signUp({ email, password });
-      if (error) { alert(error.message); return; }
-
-      if (data.user) {
-        await supabaseClient.from('profiles').upsert([{ id: data.user.id, username }]);
-        alert('Account created successfully! You can now sign in.');
+      if (!session || error) {
+        window.location.href = 'auth.html';
+        return;
       }
-    }
 
-    async function signIn() {
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
+      const userEmail = session.user.email;
+      const userId = session.user.id; // Using user ID as the unique streamer token
 
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) { alert(error.message); return; }
-      checkUserSession();
-    }
+      document.getElementById('user-email').innerText = userEmail;
 
-    async function signOut() {
-      await supabaseClient.auth.signOut();
-      location.reload();
-    }
-
-    async function ensureUserProfile(user) {
-      const username = user.email.split('@')[0].toLowerCase();
+      const baseUrl = window.location.origin + window.location.pathname.replace('dashboard.html', '');
       
-      let { data: profile, error } = await supabaseClient
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error || !profile) {
-        const { data: newProfile, err } = await supabaseClient
-          .from('profiles')
-          .upsert([{ id: user.id, username, settings: { volume: 80, voice: 'default' } }])
-          .select()
-          .single();
-          
-        profile = newProfile;
-      }
-
-      if (profile) {
-        activeUser = profile.username;
-        initDashboardLinks(activeUser);
-        loadCloudSettings(profile.settings);
-      } else {
-        activeUser = username;
-        initDashboardLinks(activeUser);
-      }
-    }
-
-    async function checkUserSession() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session && session.user) {
-        document.getElementById('logged-out-view').classList.add('hidden');
-        document.getElementById('logged-in-view').classList.remove('hidden');
-        document.getElementById('user-email-display').innerText = session.user.email;
-        
-        await ensureUserProfile(session.user);
-      }
-    }
-
-    function initDashboardLinks(username) {
-      const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-      const overlayUrl = `${baseUrl}obs-overlay.html?user=${username}`;
-      const chatUrl = `${baseUrl}chat.html?user=${username}`;
-
-      document.getElementById('overlay-url-output').value = overlayUrl;
-      document.getElementById('launch-overlay-btn').href = overlayUrl;
-      document.getElementById('launch-chat-btn').href = chatUrl;
-
-      document.getElementById('dashboard-panel').classList.remove('hidden');
-      const badge = document.getElementById('status-badge');
-      badge.innerText = `Connected: ${username}`;
-      badge.className = 'text-xs bg-green-950 text-green-400 border border-green-800 px-3 py-1 rounded-full uppercase tracking-wider';
-    }
-
-    async function saveSettings() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) return;
-
-      const volume = document.getElementById('setting-volume').value;
-      const voice = document.getElementById('setting-voice').value;
-      const settings = { volume, voice };
-
-      const { error } = await supabaseClient.from('profiles').update({ settings }).eq('id', session.user.id);
-      if (error) { alert('Failed to sync settings to cloud.'); return; }
-      alert('Streamer settings synced and saved to cloud database!');
-    }
-
-    function loadCloudSettings(settings) {
-      if (settings) {
-        if (settings.volume) document.getElementById('setting-volume').value = settings.volume;
-        if (settings.voice) document.getElementById('setting-voice').value = settings.voice;
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      checkUserSession();
+      document.getElementById('controller-link').value = `${baseUrl}chat.html?user=${userId}`;
+      document.getElementById('overlay-link').value = `${baseUrl}live.html?user=${userId}`;
     });
 
-    function copyOverlayUrl() {
-      const copyText = document.getElementById('overlay-url-output');
-      copyText.select();
-      navigator.clipboard.writeText(copyText.value);
-      alert('Overlay URL copied to clipboard!');
+    async function handleLogout() {
+      await supabaseClient.auth.signOut();
+      window.location.href = 'auth.html';
+    }
+
+    function copyLink(elementId) {
+      const input = document.getElementById(elementId);
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      alert('Link copied to clipboard!');
     }
   </script>
 </body>
