@@ -7,7 +7,18 @@
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-transparent text-white min-h-screen overflow-hidden font-mono p-10 flex flex-col justify-end items-start">
+<body class="bg-zinc-950 text-white min-h-screen overflow-hidden font-mono p-10 flex flex-col justify-end items-start">
+
+  <!-- Initial Interaction Gate (Satisfies browser audio security policy) -->
+  <div id="init-gate" class="fixed inset-0 bg-zinc-950/95 z-50 flex flex-col items-center justify-center p-6 text-center backdrop-blur-md">
+    <div class="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-2xl max-w-sm space-y-4">
+      <h2 class="text-lg font-bold text-indigo-400">⚡ OVRDRV Live Overlay</h2>
+      <p class="text-xs text-zinc-400 leading-relaxed">Click below to initialize text-to-speech audio permissions and connect to the live event feed.</p>
+      <button onclick="initializeAudioSession()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-lg shadow-indigo-600/30">
+        Initialize Audio & Start Feed
+      </button>
+    </div>
+  </div>
 
   <!-- Alert Stream Container -->
   <div id="alert-container" class="space-y-4 w-full max-w-lg"></div>
@@ -21,36 +32,27 @@
     const targetStreamer = urlParams.get('user') || 'teststreamer';
 
     let lastProcessedId = null;
+    let feedActive = false;
 
-    // Programmatically bypass autoplay restrictions on load via Web Audio API context kickstart
-    function forceUnlockAudio() {
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (AudioContext) {
-          const ctx = new AudioContext();
-          if (ctx.state === 'suspended') {
-            ctx.resume();
-          }
-          // Play a silent micro-buffer to satisfy browser user-gesture policy programmatically
-          const buffer = ctx.createBuffer(1, 1, 22050);
-          const source = ctx.createBufferSource();
-          source.buffer = buffer;
-          source.connect(ctx.destination);
-          source.start(0);
-        }
-        
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const dummy = new SpeechSynthesisUtterance("");
-          window.speechSynthesis.speak(dummy);
-        }
-      } catch (e) {
-        console.log("Auto-unlock attempt:", e);
+    function initializeAudioSession() {
+      // Unlock speech synthesis via explicit user gesture
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const unlockUtterance = new SpeechSynthesisUtterance("");
+        window.speechSynthesis.speak(unlockUtterance);
       }
+
+      // Remove the gate and start the polling loop
+      const gate = document.getElementById('init-gate');
+      if (gate) gate.remove();
+
+      feedActive = true;
+      pollTriggers();
+      setInterval(pollTriggers, 2000);
     }
 
     function speakMessage(text) {
-      if ('speechSynthesis' in window) {
+      if ('speechSynthesis' in window && feedActive) {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
@@ -82,6 +84,8 @@
     }
 
     async function pollTriggers() {
+      if (!feedActive) return;
+
       try {
         const { data, error } = await supabaseClient
           .from('triggers')
@@ -105,12 +109,6 @@
         console.error("Polling error:", err);
       }
     }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      forceUnlockAudio();
-      pollTriggers();
-      setInterval(pollTriggers, 2000);
-    });
   </script>
 </body>
 </html>
