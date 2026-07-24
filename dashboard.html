@@ -19,16 +19,28 @@
       <span id="status-badge" class="text-xs bg-zinc-800 text-zinc-400 px-3 py-1 rounded-full uppercase tracking-wider">Not Connected</span>
     </div>
 
-    <!-- Login / User ID Setup Section -->
-    <div id="auth-section" class="mb-8">
-      <label class="block text-xs uppercase tracking-wider text-zinc-400 mb-2">Your Streamer ID / Username</label>
-      <div class="flex gap-2">
-        <input type="text" id="username-input" placeholder="e.g. streamer_joe" class="flex-grow bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-        <button onclick="connectUser()" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded-xl font-bold transition-all cursor-pointer">Load Session</button>
+    <!-- Creator Sign In / Up Section -->
+    <div id="auth-section" class="mb-8 space-y-4">
+      <div id="logged-out-view" class="space-y-3">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-400">Creator Sign In / Up</h2>
+        <input type="email" id="auth-email" placeholder="Streamer Email" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-indigo-500 text-xs">
+        <input type="password" id="auth-password" placeholder="Password" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-indigo-500 text-xs">
+        <div class="flex gap-2">
+          <button onclick="signIn()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer">Sign In</button>
+          <button onclick="signUp()" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer border border-zinc-700">Register</button>
+        </div>
+      </div>
+
+      <div id="logged-in-view" class="hidden flex justify-between items-center bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
+        <div>
+          <span class="text-[10px] text-zinc-400 uppercase tracking-wider block">Logged in as:</span>
+          <span id="user-email-display" class="text-indigo-400 font-bold text-xs"></span>
+        </div>
+        <button onclick="signOut()" class="bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer">Sign Out</button>
       </div>
     </div>
 
-    <!-- Dashboard Main Panel (Hidden until user loaded) -->
+    <!-- Dashboard Main Panel (Hidden until user authenticated) -->
     <div id="dashboard-panel" class="hidden space-y-6">
       <!-- Overlay URL Generator -->
       <div class="bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
@@ -85,14 +97,72 @@
 
     let activeUser = "";
 
-    function connectUser() {
-      const username = document.getElementById('username-input').value.trim().toLowerCase();
-      if (!username) {
-        alert('Please enter a valid username.');
-        return;
+    async function signUp() {
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      const username = email.split('@')[0].toLowerCase();
+
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) { alert(error.message); return; }
+
+      if (data.user) {
+        await supabaseClient.from('profiles').insert([{ id: data.user.id, username }]);
+        alert('Account created successfully! Check your email for confirmation or sign in.');
+      }
+    }
+
+    async function signIn() {
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) { alert(error.message); return; }
+      checkUserSession();
+    }
+
+    async function signOut() {
+      await supabaseClient.auth.signOut();
+      location.reload();
+    }
+
+    async function ensureUserProfile(user) {
+      const username = user.email.split('@')[0].toLowerCase();
+      
+      let { data: profile, error } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error || !profile) {
+        const { data: newProfile, err } = await supabaseClient
+          .from('profiles')
+          .insert([{ id: user.id, username, settings: { volume: 80, voice: 'default' } }])
+          .select()
+          .single();
+          
+        if (!err) profile = newProfile;
       }
 
-      activeUser = username;
+      if (profile) {
+        activeUser = profile.username;
+        initDashboardLinks(activeUser);
+        loadCloudSettings(profile.settings);
+      }
+    }
+
+    async function checkUserSession() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session && session.user) {
+        document.getElementById('logged-out-view').classList.add('hidden');
+        document.getElementById('logged-in-view').classList.remove('hidden');
+        document.getElementById('user-email-display').innerText = session.user.email;
+        
+        await ensureUserProfile(session.user);
+      }
+    }
+
+    function initDashboardLinks(username) {
       const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
       const overlayUrl = `${baseUrl}obs-overlay.html?user=${username}`;
       const chatUrl = `${baseUrl}chat.html?user=${username}`;
@@ -105,37 +175,30 @@
       const badge = document.getElementById('status-badge');
       badge.innerText = `Connected: ${username}`;
       badge.className = 'text-xs bg-green-950 text-green-400 border border-green-800 px-3 py-1 rounded-full uppercase tracking-wider';
-
-      localStorage.setItem('ovrdrv_user', username);
-      loadSettings();
     }
 
     async function saveSettings() {
-      if (!activeUser) return;
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) return;
+
       const volume = document.getElementById('setting-volume').value;
       const voice = document.getElementById('setting-voice').value;
+      const settings = { volume, voice };
 
-      // Save locally as a reliable fallback
-      localStorage.setItem(`ovrdrv_settings_${activeUser}`, JSON.stringify({ volume, voice }));
-      alert('Streamer settings saved successfully!');
+      const { error } = await supabaseClient.from('profiles').update({ settings }).eq('id', session.user.id);
+      if (error) { alert('Failed to sync settings to cloud.'); return; }
+      alert('Streamer settings synced and saved to cloud database!');
     }
 
-    function loadSettings() {
-      if (!activeUser) return;
-      const saved = localStorage.getItem(`ovrdrv_settings_${activeUser}`);
-      if (saved) {
-        const settings = JSON.parse(saved);
+    function loadCloudSettings(settings) {
+      if (settings) {
         if (settings.volume) document.getElementById('setting-volume').value = settings.volume;
         if (settings.voice) document.getElementById('setting-voice').value = settings.voice;
       }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      const savedUser = localStorage.getItem('ovrdrv_user');
-      if (savedUser) {
-        document.getElementById('username-input').value = savedUser;
-        connectUser();
-      }
+      checkUserSession();
     });
 
     function copyOverlayUrl() {
