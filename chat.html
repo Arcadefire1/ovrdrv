@@ -33,43 +33,19 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const urlParams = new URLSearchParams(window.location.search);
-    const username = urlParams.get('user');
-    let targetUserId = null;
+    const username = urlParams.get('user') || 'teststreamer';
 
-    async function resolveUser() {
-      if (!username) {
-        document.getElementById('target-user').innerText = 'No User Specified';
-        return;
-      }
-      
-      // Query the profiles table to get the correct foreign key UUID for this username
-      const { data: profile, error } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('username', username)
-        .single();
-
-      if (profile) {
-        targetUserId = profile.id;
-        document.getElementById('target-user').innerText = `Target: ${username}`;
-      } else {
-        document.getElementById('target-user').innerText = `User Not Found`;
-      }
-    }
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('target-user').innerText = `Target: ${username}`;
+    });
 
     async function sendTrigger(e) {
       e.preventDefault();
-      if (!targetUserId) {
-        alert('Invalid target streamer profile or user not found in database.');
-        return;
-      }
-
       const text = document.getElementById('message-input').value.trim();
       if (!text) return;
 
       const { error } = await supabaseClient.from('triggers').insert([
         {
-          user_id: targetUserId,
           event_type: 'chat_alert',
           payload: { message: text, streamer: username }
         }
@@ -82,8 +58,6 @@
         document.getElementById('message-input').value = '';
       }
     }
-
-    window.addEventListener('DOMContentLoaded', resolveUser);
   </script>
 </body>
 </html>
