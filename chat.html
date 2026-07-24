@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OVRDRV Controller Chat</title>
+  <title>OVRDRV Controller Hub</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-zinc-950 text-white min-h-screen flex flex-col items-center justify-center p-6 font-mono">
 
-  <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-4">
+  <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5">
     <div class="border-b border-zinc-800 pb-3 flex justify-between items-center">
       <h1 class="text-lg font-bold text-indigo-400">⚡ Controller Hub</h1>
       <span id="target-user" class="text-xs text-zinc-400 bg-zinc-950 px-2.5 py-1 rounded-full">Connecting...</span>
@@ -21,10 +21,18 @@
         <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Send Alert / Message</label>
         <input type="text" id="message-input" placeholder="Type an alert message..." class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" required>
       </div>
-      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer">
+      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-lg shadow-indigo-600/30">
         Dispatch Event
       </button>
     </form>
+
+    <!-- Event History Log Section -->
+    <div class="space-y-2 pt-2 border-t border-zinc-800">
+      <div class="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Recent Dispatched History</div>
+      <div id="history-log" class="bg-zinc-950 border border-zinc-800 rounded-xl p-3 h-40 overflow-y-auto space-y-2 text-xs text-zinc-300">
+        <div class="text-zinc-600 italic text-center py-10">No events dispatched yet...</div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -37,7 +45,33 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('target-user').innerText = `Target: ${username}`;
+      fetchHistory();
     });
+
+    async function fetchHistory() {
+      const { data, error } = await supabaseClient
+        .from('triggers')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (data && data.length > 0) {
+        const logContainer = document.getElementById('history-log');
+        logContainer.innerHTML = '';
+        data.forEach(item => {
+          const msg = item.payload?.message || 'Alert message';
+          const time = new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          
+          const entry = document.createElement('div');
+          entry.className = "flex justify-between items-center bg-zinc-900 border border-zinc-800/60 p-2 rounded-lg";
+          entry.innerHTML = `
+            <span class="text-white truncate max-w-[220px]">${escapeHtml(msg)}</span>
+            <span class="text-[10px] text-zinc-500">${time}</span>
+          `;
+          logContainer.appendChild(entry);
+        });
+      }
+    }
 
     async function sendTrigger(e) {
       e.preventDefault();
@@ -56,7 +90,12 @@
         console.error(error);
       } else {
         document.getElementById('message-input').value = '';
+        fetchHistory(); // Refresh history log immediately
       }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
   </script>
 </body>
