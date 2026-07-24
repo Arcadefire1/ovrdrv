@@ -33,7 +33,7 @@
       const container = document.getElementById('alert-container');
       
       const alertBox = document.createElement('div');
-      alertBox.className = "bg-zinc-900/90 border-2 border-indigo-500 rounded-2xl p-5 shadow-2xl backdrop-blur-md transform transition-all duration-300 animate-bounce";
+      alertBox.className = "bg-zinc-900/90 border-2 border-indigo-500 rounded-2xl p-5 shadow-2xl backdrop-blur-md transform transition-all duration-300";
       alertBox.innerHTML = `
         <div class="text-[10px] uppercase tracking-wider text-indigo-400 font-bold mb-1">⚡ Live Alert - ${targetStreamer}</div>
         <div class="text-lg font-bold text-white break-words">${escapeHtml(message)}</div>
@@ -42,7 +42,6 @@
       container.appendChild(alertBox);
       speakMessage(message);
 
-      // Remove alert after 6 seconds
       setTimeout(() => {
         alertBox.classList.add('opacity-0', 'transition-opacity', 'duration-500');
         setTimeout(() => alertBox.remove(), 500);
@@ -53,7 +52,6 @@
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    // Subscribe to real-time database changes on the triggers table
     function initRealtimeListener() {
       supabaseClient
         .channel('public:triggers')
@@ -61,7 +59,6 @@
           const newRecord = payload.new;
           const recordStreamer = newRecord.payload?.streamer;
 
-          // Match events targeted for this specific stream overlay
           if (!recordStreamer || recordStreamer === targetStreamer) {
             const messageText = newRecord.payload?.message || "New alert received!";
             renderAlert(messageText);
