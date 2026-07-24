@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OVRDRV OBS Live Overlay</title>
+  <title>OVRDRV Live Overlay</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -21,6 +21,33 @@
     const targetStreamer = urlParams.get('user') || 'teststreamer';
 
     let lastProcessedId = null;
+
+    // Programmatically bypass autoplay restrictions on load via Web Audio API context kickstart
+    function forceUnlockAudio() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          if (ctx.state === 'suspended') {
+            ctx.resume();
+          }
+          // Play a silent micro-buffer to satisfy browser user-gesture policy programmatically
+          const buffer = ctx.createBuffer(1, 1, 22050);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
+        }
+        
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const dummy = new SpeechSynthesisUtterance("");
+          window.speechSynthesis.speak(dummy);
+        }
+      } catch (e) {
+        console.log("Auto-unlock attempt:", e);
+      }
+    }
 
     function speakMessage(text) {
       if ('speechSynthesis' in window) {
@@ -54,7 +81,6 @@
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    // Polling fallback to check for latest triggers every 2 seconds (bypasses cache/websocket limits)
     async function pollTriggers() {
       try {
         const { data, error } = await supabaseClient
@@ -66,7 +92,7 @@
         if (data && data.length > 0) {
           const latest = data[0];
           if (!lastProcessedId) {
-            lastProcessedId = latest.id; // Initialize baseline on first load
+            lastProcessedId = latest.id;
           } else if (latest.id !== lastProcessedId) {
             lastProcessedId = latest.id;
             const recordStreamer = latest.payload?.streamer;
@@ -81,7 +107,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      // Run initial check and then poll every 2 seconds
+      forceUnlockAudio();
       pollTriggers();
       setInterval(pollTriggers, 2000);
     });
