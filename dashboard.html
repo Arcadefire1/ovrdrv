@@ -40,6 +40,32 @@
         <p class="text-[10px] text-zinc-500 mt-2">Open this URL in your web browser source or monitor to display your live alert overlay.</p>
       </div>
 
+      <!-- Streamer Settings Panel -->
+      <div class="bg-zinc-950 border border-zinc-800 p-4 rounded-xl space-y-4">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-400">⚙️ Streamer Settings</h2>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Master Volume</label>
+            <input type="range" id="setting-volume" min="0" max="100" value="80" class="w-full accent-indigo-500 bg-zinc-900">
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Voice Style / Fallback</label>
+            <select id="setting-voice" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="default">Default Browser Voice</option>
+              <option value="robot">Robotic Synth</option>
+              <option value="deep">Deep Tone</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button onclick="saveSettings()" class="bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer border border-zinc-700">
+            Save Settings
+          </button>
+        </div>
+      </div>
+
       <!-- Quick Launch Links -->
       <div class="grid grid-cols-2 gap-4">
         <a id="launch-chat-btn" href="#" target="_blank" class="block bg-zinc-800 hover:bg-zinc-700 text-center py-3 rounded-xl font-bold text-sm transition-all border border-zinc-700">
@@ -57,6 +83,8 @@
     const SUPABASE_ANON_KEY = "sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0";
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    let activeUser = "";
+
     function connectUser() {
       const username = document.getElementById('username-input').value.trim().toLowerCase();
       if (!username) {
@@ -64,6 +92,7 @@
         return;
       }
 
+      activeUser = username;
       const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
       const overlayUrl = `${baseUrl}obs-overlay.html?user=${username}`;
       const chatUrl = `${baseUrl}chat.html?user=${username}`;
@@ -78,6 +107,27 @@
       badge.className = 'text-xs bg-green-950 text-green-400 border border-green-800 px-3 py-1 rounded-full uppercase tracking-wider';
 
       localStorage.setItem('ovrdrv_user', username);
+      loadSettings();
+    }
+
+    async function saveSettings() {
+      if (!activeUser) return;
+      const volume = document.getElementById('setting-volume').value;
+      const voice = document.getElementById('setting-voice').value;
+
+      // Save locally as a reliable fallback
+      localStorage.setItem(`ovrdrv_settings_${activeUser}`, JSON.stringify({ volume, voice }));
+      alert('Streamer settings saved successfully!');
+    }
+
+    function loadSettings() {
+      if (!activeUser) return;
+      const saved = localStorage.getItem(`ovrdrv_settings_${activeUser}`);
+      if (saved) {
+        const settings = JSON.parse(saved);
+        if (settings.volume) document.getElementById('setting-volume').value = settings.volume;
+        if (settings.voice) document.getElementById('setting-voice').value = settings.voice;
+      }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
