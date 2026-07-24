@@ -201,12 +201,6 @@
     }
 
     async function playTTS(text, voiceName) {
-      // Ensure audio context is ready
-      initAudioContext();
-      if (audioCtx && audioCtx.state === 'suspended') {
-        await audioCtx.resume();
-      }
-
       const voiceId = VOICE_MAP[voiceName] || VOICE_MAP['Rachel'];
 
       try {
@@ -242,7 +236,12 @@
     }
 
     // --- Reliable Audio Fallback Tone ---
-    function playFallbackTone() {
+    async function playFallbackTone() {
+      initAudioContext();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+      
       if (!audioCtx) return;
       
       try {
