@@ -20,6 +20,8 @@
     const urlParams = new URLSearchParams(window.location.search);
     const targetStreamer = urlParams.get('user') || 'teststreamer';
 
+    let lastProcessedId = null;
+
     function speakMessage(text) {
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(text);
@@ -52,22 +54,37 @@
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    function initRealtimeListener() {
-      supabaseClient
-        .channel('public:triggers')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'triggers' }, payload => {
-          const newRecord = payload.new;
-          const recordStreamer = newRecord.payload?.streamer;
+    // Polling fallback to check for latest triggers every 2 seconds (bypasses cache/websocket limits)
+    async function pollTriggers() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('triggers')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-          if (!recordStreamer || recordStreamer === targetStreamer) {
-            const messageText = newRecord.payload?.message || "New alert received!";
-            renderAlert(messageText);
+        if (data && data.length > 0) {
+          const latest = data[0];
+          if (!lastProcessedId) {
+            lastProcessedId = latest.id; // Initialize baseline on first load
+          } else if (latest.id !== lastProcessedId) {
+            lastProcessedId = latest.id;
+            const recordStreamer = latest.payload?.streamer;
+            if (!recordStreamer || recordStreamer === targetStreamer) {
+              renderAlert(latest.payload?.message || "New alert received!");
+            }
           }
-        })
-        .subscribe();
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
     }
 
-    window.addEventListener('DOMContentLoaded', initRealtimeListener);
+    window.addEventListener('DOMContentLoaded', () => {
+      // Run initial check and then poll every 2 seconds
+      pollTriggers();
+      setInterval(pollTriggers, 2000);
+    });
   </script>
 </body>
 </html>
