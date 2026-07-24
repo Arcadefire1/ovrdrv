@@ -1,78 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>OVRDRV - Streamer Onboarding</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { background: #0f0f13; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .auth-container { background: #1a1a24; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 320px; text-align: center; }
-        h2 { margin-bottom: 24px; color: #00ffcc; text-transform: uppercase; letter-spacing: 1px; }
-        input { width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 6px; border: 1px solid #333; background: #101017; color: white; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        .btn-primary { background: #ff0055; color: white; }
-        .btn-primary:hover { background: #e0004c; }
-        .btn-secondary { background: transparent; color: #aaa; border: 1px solid #444; }
-        .btn-secondary:hover { color: white; border-color: white; }
-        .msg { font-size: 0.9rem; margin-top: 10px; min-height: 20px; }
-        .error { color: #ff3366; }
-        .success { color: #00ffcc; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OVRDRV SaaS - Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-    <div class="auth-container">
-        <h2>OVRDRV Portal</h2>
-        <input type="email" id="email" placeholder="Streamer Email" />
-        <input type="password" id="password" placeholder="Password" />
-        <button class="btn-primary" id="btn-login">Log In</button>
-        <button class="btn-secondary" id="btn-signup">Create Account</button>
-        <div id="message-box" class="msg"></div>
+<body class="bg-zinc-950 text-white min-h-screen flex flex-col items-center justify-center p-6 font-mono">
+
+  <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-6">
+    <div class="text-center space-y-1">
+      <h1 class="text-xl font-bold text-indigo-400">⚡ OVRDRV SaaS</h1>
+      <p class="text-xs text-zinc-400">Sign in or create an account to manage your stream.</p>
     </div>
 
-    <script>
-        const SUPABASE_URL = 'https://nkcopkrondaoqbavhnon.supabase.co'; 
-        const SUPABASE_ANON_KEY = 'sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <!-- Auth Form -->
+    <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Email Address</label>
+        <input type="email" id="email-input" placeholder="name@example.com" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" required>
+      </div>
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Password</label>
+        <input type="password" id="password-input" placeholder="••••••••" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" required>
+      </div>
 
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const msgBox = document.getElementById('message-box');
+      <div id="error-message" class="text-red-400 text-xs hidden"></div>
 
-        function showMessage(text, isError = false) {
-            msgBox.textContent = text;
-            msgBox.className = isError ? 'msg error' : 'msg success';
-        }
+      <div class="flex gap-2 pt-2">
+        <button type="submit" name="action" value="signin" class="flex-1 bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-lg shadow-indigo-600/30">
+          Sign In
+        </button>
+        <button type="button" onclick="handleSignUp()" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer">
+          Register
+        </button>
+      </div>
+    </form>
+  </div>
 
-        // Handle Account Creation
-        document.getElementById('btn-signup').addEventListener('click', async () => {
-            const { data, error } = await _supabase.auth.signUp({
-                email: emailInput.value,
-                password: passwordInput.value
-            });
+  <script>
+    const SUPABASE_URL = "https://nkcopkrondaoqbavhnon.supabase.co"; 
+    const SUPABASE_ANON_KEY = "sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0";
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            if (error) {
-                showMessage(error.message, true);
-            } else if (data.user) {
-                showMessage("Account registered! Click 'Log In' to continue.");
-            }
-        });
+    async function handleAuth(e) {
+      e.preventDefault();
+      const email = document.getElementById('email-input').value.trim();
+      const password = document.getElementById('password-input').value.trim();
+      const errorDiv = document.getElementById('error-message');
+      errorDiv.classList.add('hidden');
 
-        // Handle Login
-        document.getElementById('btn-login').addEventListener('click', async () => {
-            const { data, error } = await _supabase.auth.signInWithPassword({
-                email: emailInput.value,
-                password: passwordInput.value
-            });
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
-            if (error) {
-                showMessage(error.message, true);
-            } else if (data.user) {
-                showMessage("Logged in! Redirecting...");
-                setTimeout(() => {
-                    window.location.href = `dashboard.html?user=${data.user.id}`;
-                }, 1000);
-            }
-        });
-    </script>
+      if (error) {
+        errorDiv.innerText = error.message;
+        errorDiv.classList.remove('hidden');
+      } else {
+        window.location.href = 'dashboard.html';
+      }
+    }
+
+    async function handleSignUp() {
+      const email = document.getElementById('email-input').value.trim();
+      const password = document.getElementById('password-input').value.trim();
+      const errorDiv = document.getElementById('error-message');
+      errorDiv.classList.add('hidden');
+
+      if (!email || !password) {
+        errorDiv.innerText = "Please enter an email and password to register.";
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+
+      if (error) {
+        errorDiv.innerText = error.message;
+        errorDiv.classList.remove('hidden');
+      } else {
+        alert('Registration successful! Please check your email for confirmation, or log in if email verification is disabled in your Supabase project.');
+      }
+    }
+  </script>
 </body>
 </html>
