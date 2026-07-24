@@ -34,7 +34,7 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const username = urlParams.get('user');
-    let targetUserId = null;
+    let targetIdentifier = null;
 
     async function resolveUser() {
       if (!username) {
@@ -42,24 +42,14 @@
         return;
       }
       
-      const { data: profile, error } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('username', username)
-        .single();
-
-      if (profile) {
-        targetUserId = profile.id;
-        document.getElementById('target-user').innerText = `Target: ${username}`;
-      } else {
-        document.getElementById('target-user').innerText = `Target: ${username} (Fallback)`;
-        targetUserId = username; 
-      }
+      // Instantly accept the URL username for seamless testing and event mapping
+      targetIdentifier = username;
+      document.getElementById('target-user').innerText = `Target: ${username}`;
     }
 
     async function sendTrigger(e) {
       e.preventDefault();
-      if (!targetUserId) {
+      if (!targetIdentifier) {
         alert('Invalid target streamer profile.');
         return;
       }
@@ -67,18 +57,14 @@
       const text = document.getElementById('message-input').value.trim();
       if (!text) return;
 
-      const insertData = {
-        event_type: 'chat_alert',
-        payload: { message: text }
-      };
-      
-      if (typeof targetUserId === 'string' && targetUserId.length !== 36) {
-        insertData.user_id = "00000000-0000-0000-0000-000000000000";
-      } else {
-        insertData.user_id = targetUserId;
-      }
-
-      const { error } = await supabaseClient.from('triggers').insert([insertData]);
+      // Dispatch event payload with text mapping
+      const { error } = await supabaseClient.from('triggers').insert([
+        {
+          user_id: "00000000-0000-0000-0000-000000000000", // Generic test UUID placeholder
+          event_type: 'chat_alert',
+          payload: { message: text, streamer: targetIdentifier }
+        }
+      ]);
 
       if (error) {
         alert('Failed to dispatch event: ' + error.message);
