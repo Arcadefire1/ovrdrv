@@ -3,151 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OVRDRV Chat Room</title>
+  <title>OVRDRV Controller Chat</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col antialiased">
+<body class="bg-zinc-950 text-white min-h-screen flex flex-col items-center justify-center p-6 font-mono">
 
-  <header class="border-b border-zinc-800 bg-zinc-900/50 p-4 backdrop-blur-md flex items-center justify-between sticky top-0 z-10">
-    <div>
-      <h1 class="font-black tracking-tight text-xl text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 uppercase">
-        OVRDRV Chat
-      </h1>
-      <p class="text-xs text-zinc-500 uppercase tracking-widest mt-0.5">Spam to burst the engine</p>
+  <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-4">
+    <div class="border-b border-zinc-800 pb-3 flex justify-between items-center">
+      <h1 class="text-lg font-bold text-indigo-400">⚡ Controller Hub</h1>
+      <span id="target-user" class="text-xs text-zinc-400 bg-zinc-950 px-2.5 py-1 rounded-full">Connecting...</span>
     </div>
-    <div class="flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-full border border-zinc-800">
-      <div class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-      <span class="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Live Sync Active</span>
-    </div>
-  </header>
 
-  <main id="chat-stream" class="flex-grow p-4 overflow-y-auto space-y-3 flex flex-col justify-end">
-    <div class="text-xs text-zinc-600 font-mono bg-zinc-900/30 border border-zinc-900 p-3 rounded-lg max-w-sm">
-      [SYSTEM]: TTS Active. Select a voice character below to read your message out loud on stream!
-    </div>
-  </main>
-
-  <footer class="p-4 border-t border-zinc-800 bg-zinc-900/40 backdrop-blur-md sticky bottom-0">
-    <form id="chat-form" onsubmit="event.preventDefault();" class="flex flex-col gap-3 max-w-3xl mx-auto">
-      <div class="flex flex-wrap gap-2 items-center">
-        <input 
-          id="username-input" 
-          type="text" 
-          placeholder="Username (Optional)" 
-          maxlength="20"
-          class="w-40 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-zinc-300 font-mono"
-        />
-        
-        <!-- Character Selector Selection Dropdown -->
-        <select 
-          id="voice-select" 
-          class="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500 text-zinc-300 font-mono"
-        >
-          <option value="">No Voice (Text Only)</option>
-          <option value="Rachel">Rachel (Calm/Friendly)</option>
-          <option value="Charlie">Charlie (Energetic/Hype)</option>
-          <option value="Domi">Domi (Strong/Emphatic)</option>
-          <option value="Bella">Bella (Soft/Narrative)</option>
-          <option value="Antoni">Antoni (Deep/Narrator)</option>
-        </select>
+    <!-- Trigger Input Form -->
+    <form id="trigger-form" onsubmit="sendTrigger(event)" class="space-y-3">
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Send Alert / Message</label>
+        <input type="text" id="message-input" placeholder="Type an alert message..." class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" required>
       </div>
-
-      <div class="flex gap-2 items-center">
-        <input 
-          id="chat-input" 
-          type="text" 
-          placeholder="Send a message to push the meter..." 
-          autocomplete="off"
-          maxlength="120"
-          class="flex-grow bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-colors placeholder:text-zinc-600 font-medium"
-        />
-        <button 
-          type="submit"
-          class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm uppercase tracking-wide px-6 py-3 rounded-xl shadow-lg shadow-purple-900/20 active:scale-98 transition-all duration-100 cursor-pointer"
-        >
-          Send
-        </button>
-      </div>
+      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer">
+        Dispatch Event
+      </button>
     </form>
-  </footer>
+  </div>
 
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('user');
-
     const SUPABASE_URL = "https://nkcopkrondaoqbavhnon.supabase.co"; 
     const SUPABASE_ANON_KEY = "sb_publishable_2OAHkliiR6kB9f6pP6ihkg_6iKqmPA0";
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const ovrdrvSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const chatStream = document.getElementById('chat-stream');
-    const chatForm = document.getElementById('chat-form');
-    const chatInput = document.getElementById('chat-input');
-    const usernameInput = document.getElementById('username-input');
-    const voiceSelect = document.getElementById('voice-select');
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('user');
+    let targetUserId = null;
 
-    const channel = ovrdrvSupabase.channel(`room:${userId}`, {
-      config: { broadcast: { self: true } }
-    });
-
-    channel
-      .on('broadcast', { event: 'hype-increment' }, (payload) => {
-        const data = payload.payload;
-        appendMessage(data.username || 'Anonymous', data.message || data.msg, data.weight || 4);
-      })
-      .subscribe();
-
-    const HYPE_KEYWORDS = ['hype', 'lfg', 'gg', 'omg', 'burst', 'overdrive', 'wow', 'fire', '⚡', '🔥'];
-    const EMOJI_REGEX = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
-
-    chatForm.addEventListener('submit', (e) => {
-      e.preventDefault();
+    async function resolveUser() {
+      if (!username) {
+        document.getElementById('target-user').innerText = 'No User Specified';
+        return;
+      }
       
-      const text = chatInput.value.trim();
-      const user = usernameInput.value.trim() || "Anonymous";
-      const selectedVoice = voiceSelect.value;
-      if (!text) return false;
+      const { data: profile, error } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('username', username)
+        .single();
 
-      let velocityWeight = 4;
-      const lowerText = text.toLowerCase();
-
-      const containsHypeWord = HYPE_KEYWORDS.some(word => lowerText.includes(word));
-      const containsEmoji = EMOJI_REGEX.test(text);
-
-      if (containsHypeWord) velocityWeight = 15;
-      else if (containsEmoji) velocityWeight = 8;
-      
-      channel.send({
-        type: 'broadcast',
-        event: 'hype-increment',
-        payload: {
-          username: user,
-          message: text,
-          weight: velocityWeight,
-          voice: selectedVoice
-        }
-      });
-
-      chatInput.value = '';
-      return false;
-    });
-
-    function appendMessage(user, msg, weight) {
-      const msgNode = document.createElement('div');
-      msgNode.className = "text-sm bg-zinc-900 border border-zinc-800/60 px-4 py-2.5 rounded-xl max-w-fit break-words font-medium text-zinc-200 flex items-center justify-between gap-4";
-      
-      let badgeColor = "text-zinc-500 bg-zinc-950 border-zinc-800";
-      if (weight === 15) badgeColor = "text-red-400 bg-red-950/40 border-red-900/50 font-black";
-      else if (weight === 8) badgeColor = "text-purple-400 bg-purple-950/40 border-purple-900/50";
-
-      msgNode.innerHTML = `
-        <div><span class="text-blue-400 font-bold mr-1.5">${user}:</span><span>${msg}</span></div>
-        <span class="text-[10px] px-1.5 py-0.5 rounded border font-mono ${badgeColor}">+${weight}</span>
-      `;
-      
-      chatStream.appendChild(msgNode);
-      chatStream.scrollTop = chatStream.scrollHeight;
+      if (profile) {
+        targetUserId = profile.id;
+        document.getElementById('target-user').innerText = `Target: ${username}`;
+      } else {
+        document.getElementById('target-user').innerText = 'User Not Found';
+      }
     }
+
+    async function sendTrigger(e) {
+      e.preventDefault();
+      if (!targetUserId) {
+        alert('Invalid target streamer profile.');
+        return;
+      }
+
+      const text = document.getElementById('message-input').value.trim();
+      if (!text) return;
+
+      const { error } = await supabaseClient.from('triggers').insert([
+        {
+          user_id: targetUserId,
+          event_type: 'chat_alert',
+          payload: { message: text }
+        }
+      ]);
+
+      if (error) {
+        alert('Failed to dispatch event.');
+        console.error(error);
+      } else {
+        document.getElementById('message-input').value = '';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', resolveUser);
   </script>
 </body>
 </html>
