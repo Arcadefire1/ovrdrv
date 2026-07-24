@@ -52,7 +52,8 @@
         targetUserId = profile.id;
         document.getElementById('target-user').innerText = `Target: ${username}`;
       } else {
-        document.getElementById('target-user').innerText = 'User Not Found';
+        document.getElementById('target-user').innerText = `Target: ${username} (Fallback)`;
+        targetUserId = username; 
       }
     }
 
@@ -66,16 +67,21 @@
       const text = document.getElementById('message-input').value.trim();
       if (!text) return;
 
-      const { error } = await supabaseClient.from('triggers').insert([
-        {
-          user_id: targetUserId,
-          event_type: 'chat_alert',
-          payload: { message: text }
-        }
-      ]);
+      const insertData = {
+        event_type: 'chat_alert',
+        payload: { message: text }
+      };
+      
+      if (typeof targetUserId === 'string' && targetUserId.length !== 36) {
+        insertData.user_id = "00000000-0000-0000-0000-000000000000";
+      } else {
+        insertData.user_id = targetUserId;
+      }
+
+      const { error } = await supabaseClient.from('triggers').insert([insertData]);
 
       if (error) {
-        alert('Failed to dispatch event.');
+        alert('Failed to dispatch event: ' + error.message);
         console.error(error);
       } else {
         document.getElementById('message-input').value = '';
