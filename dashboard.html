@@ -106,8 +106,8 @@
       if (error) { alert(error.message); return; }
 
       if (data.user) {
-        await supabaseClient.from('profiles').insert([{ id: data.user.id, username }]);
-        alert('Account created successfully! Check your email for confirmation or sign in.');
+        await supabaseClient.from('profiles').upsert([{ id: data.user.id, username }]);
+        alert('Account created successfully! You can now sign in.');
       }
     }
 
@@ -137,17 +137,20 @@
       if (error || !profile) {
         const { data: newProfile, err } = await supabaseClient
           .from('profiles')
-          .insert([{ id: user.id, username, settings: { volume: 80, voice: 'default' } }])
+          .upsert([{ id: user.id, username, settings: { volume: 80, voice: 'default' } }])
           .select()
           .single();
           
-        if (!err) profile = newProfile;
+        profile = newProfile;
       }
 
       if (profile) {
         activeUser = profile.username;
         initDashboardLinks(activeUser);
         loadCloudSettings(profile.settings);
+      } else {
+        activeUser = username;
+        initDashboardLinks(activeUser);
       }
     }
 
