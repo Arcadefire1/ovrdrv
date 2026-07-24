@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OVRDRV Live Overlay</title>
+  <title>OVRDRV Live Stream View</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-zinc-950 text-white min-h-screen overflow-hidden font-mono p-10 flex flex-col justify-end items-start">
 
-  <!-- Initial Interaction Gate (Satisfies browser audio security policy) -->
-  <div id="init-gate" class="fixed inset-0 bg-zinc-950/95 z-50 flex flex-col items-center justify-center p-6 text-center backdrop-blur-md">
+  <!-- Initial Interaction Gate to satisfy browser speech security -->
+  <div id="init-gate" class="fixed inset-0 bg-zinc-950 z-50 flex flex-col items-center justify-center p-6 text-center">
     <div class="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-2xl max-w-sm space-y-4">
-      <h2 class="text-lg font-bold text-indigo-400">⚡ OVRDRV Live Overlay</h2>
-      <p class="text-xs text-zinc-400 leading-relaxed">Click below to initialize text-to-speech audio permissions and connect to the live event feed.</p>
+      <h2 class="text-lg font-bold text-indigo-400">⚡ OVRDRV Live Stream</h2>
+      <p class="text-xs text-zinc-400 leading-relaxed">Click below to activate audio permissions and connect to your live feed.</p>
       <button onclick="initializeAudioSession()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-lg shadow-indigo-600/30">
         Initialize Audio & Start Feed
       </button>
@@ -35,14 +35,12 @@
     let feedActive = false;
 
     function initializeAudioSession() {
-      // Unlock speech synthesis via explicit user gesture
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         const unlockUtterance = new SpeechSynthesisUtterance("");
         window.speechSynthesis.speak(unlockUtterance);
       }
 
-      // Remove the gate and start the polling loop
       const gate = document.getElementById('init-gate');
       if (gate) gate.remove();
 
