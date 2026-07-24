@@ -34,7 +34,7 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const username = urlParams.get('user');
-    let targetIdentifier = null;
+    let targetUserId = null;
 
     async function resolveUser() {
       if (!username) {
@@ -42,27 +42,36 @@
         return;
       }
       
-      // Instantly accept the URL username for seamless testing and event mapping
-      targetIdentifier = username;
-      document.getElementById('target-user').innerText = `Target: ${username}`;
+      // Query the profiles table to get the correct foreign key UUID for this username
+      const { data: profile, error } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('username', username)
+        .single();
+
+      if (profile) {
+        targetUserId = profile.id;
+        document.getElementById('target-user').innerText = `Target: ${username}`;
+      } else {
+        document.getElementById('target-user').innerText = `User Not Found`;
+      }
     }
 
     async function sendTrigger(e) {
       e.preventDefault();
-      if (!targetIdentifier) {
-        alert('Invalid target streamer profile.');
+      if (!targetUserId) {
+        alert('Invalid target streamer profile or user not found in database.');
         return;
       }
 
       const text = document.getElementById('message-input').value.trim();
       if (!text) return;
 
-      // Dispatch event payload with text mapping
       const { error } = await supabaseClient.from('triggers').insert([
         {
-          user_id: "00000000-0000-0000-0000-000000000000", // Generic test UUID placeholder
+          user_id: targetUserId,
           event_type: 'chat_alert',
-          payload: { message: text, streamer: targetIdentifier }
+          payload: { message: text, streamer: username }
         }
       ]);
 
